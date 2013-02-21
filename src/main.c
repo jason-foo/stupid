@@ -1,0 +1,191 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <pthread.h>
+#include <netinet/in.h>
+#include <unistd.h>
+#include <signal.h>
+
+/* #include <sys/socket.h> */
+#include <netinet/if_ether.h>
+#include <net/if.h>
+
+#include "utils.h"
+
+#include "skbuff.h"
+#include "netdevice.h"
+#include "sock.h"
+#include "skbuff.h"
+
+pthread_t recv_thread;
+pthread_t protocol_stack_thread;
+pthread_cond_t qready = PTHREAD_COND_INITIALIZER;
+pthread_mutex_t qlock = PTHREAD_MUTEX_INITIALIZER;
+
+struct net_device nic;	/* it should be a list of virtual devices */
+struct sock sock_demo;
+
+struct sk_buff_head sk_buff_list;
+
+int cnt_recv, cnt_protocol, cnt_processed;
+
+void net_device_config_by_hand(struct net_device *nic)
+{
+	strncpy(nic->name, "eth250", IFNAMSIZ - 1);
+	nic->next = NULL;
+
+	nic->ip = 0xc0a802fa;	/* 192.168.2.250 */
+	nic->netmask = 0xffffff00;
+	nic->gateway = 0xc0a80201;
+	unsigned char mac[7] = {0xc8, 0x60, 0x00, 0x0c, 0x1b, 0x39, 0};
+	int i;
+	for (i = 0; i < 7; i++)
+		nic->mac[i] = mac[i];
+}
+
+void net_device_init()
+{
+	net_device_config_by_hand(&nic);
+}
+
+void sock_init()
+{
+	/* sock_demo.sk_receive_queue.next = NULL; */
+	/* sock_demo.sk_receive_queue.prev = NULL; */
+	/* sock_demo.sk_receive_queue.len = 0; */
+	/* and something else */
+	skb_queue_head_init(&sk_buff_list);
+	sock_demo.mtu = 1500;
+}
+
+static void *do_recv_thread(void *arg);
+static void *do_protocol(void *arg);
+
+void receive_thread_init()
+{
+	/* printf("trace: in function %s\n", __FUNCTION__); */
+	pthread_create(&recv_thread, NULL, do_recv_thread, NULL);
+
+	/* void *thread_res; */
+	/* pthread_join(recv_thread, &thread_res); */
+}
+
+void protocol_stack_thread_init()
+{
+	pthread_create(&protocol_stack_thread, NULL, do_protocol, NULL);
+}
+
+static void sig_int(int sig)
+{
+	/* is this signaled many times when using thread? */
+	fprintf(stdout, "statistics\n");
+	fflush(stdout);
+	printf("count %d %d %d\n", cnt_recv, cnt_protocol, cnt_processed);
+	exit(EXIT_SUCCESS);
+}
+	
+void signal_init()
+{
+	signal(SIGINT, sig_int);
+}
+
+static struct sk_buff *get_available_sk_buff()
+{
+	/* no free list desiged here, so every time we allocate one */
+	return alloc_skb(&sock_demo);
+}
+
+static void *do_recv_thread(void *arg)
+{
+	int fd;
+	/* if ( (fd = socket(AF_INET, SOCK_PACKET, htons(ETH_P_ALL))) < 0) */
+	if ( (fd = socket(PF_PACKET, SOCK_RAW, htons(ETH_P_ALL))) < 0)
+	{
+		perror("error create listening datalink socket, are you root?");
+		exit(EXIT_FAILURE);
+	}
+	
+	for (;;)
+	{
+		/* in fact these function should be invoked from the
+		   corresponding functions specified in the sock structure */
+		struct sk_buff *buf = get_available_sk_buff();
+		if (buf == NULL)
+		{
+			perror("unknown error");
+			exit(EXIT_FAILURE);
+		}
+		int n;
+		if ( (n = recvfrom(fd, buf->data, sock_demo.mtu, 0, NULL, NULL)) < 0)
+		/* { */
+		/* 	perror("receiving packets"); */
+		/* 	exit(EXIT_FAILURE); */
+		/* } */
+			error_msg_and_die("receiving packets");
+		buf->len = n;
+		
+//		printf("in recv thread: received data: %d bytes, cnt_recv is: %d\n",  n, cnt_recv);
+		/* pthread_kill(protocol_stack_thread, SIGCONT); */
+		pthread_mutex_lock(&qlock);
+		cnt_recv++;
+		skb_queue_head(&sk_buff_list, buf);
+		
+		pthread_mutex_unlock(&qlock);
+		pthread_cond_signal(&qready);
+	}
+}
+
+static void __do_protocol(struct sk_buff *skb)
+{
+	cnt_processed++;
+	printf("processing skb: length is: %d\n", skb->len);
+}
+
+static void *do_protocol(void *arg)
+{
+	struct sk_buff *skb;
+
+	for (;;)
+	{
+		pthread_mutex_lock(&qlock);
+		pthread_cond_wait(&qready, &qlock);
+		/* I'm using too many locks here? */
+		cnt_protocol++;
+		pthread_mutex_unlock(&qlock);
+
+		while ((skb = skb_dequeue(&sk_buff_list)) != NULL)
+			__do_protocol(skb);
+		/* printf("trace: in function %s, cnt_protocol is: %d\n", */
+		/*        __FUNCTION__, cnt_protocol); */
+		
+
+	}
+	return 0;
+}
+
+void app_demo()
+{
+}
+
+int main()
+{
+	net_device_init();
+	sock_init();
+
+	protocol_stack_thread_init();
+
+	signal_init();
+	receive_thread_init();
+	
+	pause();
+
+
+	/* daemon(1, 1); */
+
+	/* the application should be independently executed
+	   and it communicates with this daemon server with 
+	   IPCs */
+	app_demo();
+
+	return 0;
+}
