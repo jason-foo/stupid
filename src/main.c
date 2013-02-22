@@ -16,6 +16,7 @@
 #include "netdevice.h"
 #include "sock.h"
 #include "skbuff.h"
+#include "dev.h"
 
 pthread_t recv_thread;
 pthread_t protocol_stack_thread;
@@ -41,6 +42,7 @@ void net_device_config_by_hand(struct net_device *nic)
 	int i;
 	for (i = 0; i < 7; i++)
 		nic->mac[i] = mac[i];
+	nic->mtu = 1536;
 }
 
 void net_device_init()
@@ -55,7 +57,6 @@ void sock_init()
 	/* sock_demo.sk_receive_queue.len = 0; */
 	/* and something else */
 	skb_queue_head_init(&sk_buff_list);
-	sock_demo.mtu = 1500;
 }
 
 static void *do_recv_thread(void *arg);
@@ -92,7 +93,7 @@ void signal_init()
 static struct sk_buff *get_available_sk_buff()
 {
 	/* no free list desiged here, so every time we allocate one */
-	return alloc_skb(&sock_demo);
+	return alloc_skb(&nic);
 }
 
 static void *do_recv_thread(void *arg)
@@ -109,37 +110,38 @@ static void *do_recv_thread(void *arg)
 	{
 		/* in fact these function should be invoked from the
 		   corresponding functions specified in the sock structure */
-		struct sk_buff *buf = get_available_sk_buff();
-		if (buf == NULL)
+		struct sk_buff *skb = get_available_sk_buff();
+		if (skb == NULL)
 		{
 			perror("unknown error");
 			exit(EXIT_FAILURE);
 		}
 		int n;
-		if ( (n = recvfrom(fd, buf->data, sock_demo.mtu, 0, NULL, NULL)) < 0)
+		if ( (n = recvfrom(fd, skb->data, nic.mtu, 0, NULL, NULL)) < 0)
 		/* { */
 		/* 	perror("receiving packets"); */
 		/* 	exit(EXIT_FAILURE); */
 		/* } */
 			error_msg_and_die("receiving packets");
-		buf->len = n;
+		skb->len = n;
+		skb->tail = skb->end = skb->head + skb->len;
 		
 //		printf("in recv thread: received data: %d bytes, cnt_recv is: %d\n",  n, cnt_recv);
 		/* pthread_kill(protocol_stack_thread, SIGCONT); */
 		pthread_mutex_lock(&qlock);
 		cnt_recv++;
-		skb_queue_head(&sk_buff_list, buf);
+		skb_queue_head(&sk_buff_list, skb);
 		
 		pthread_mutex_unlock(&qlock);
 		pthread_cond_signal(&qready);
 	}
 }
 
-static void __do_protocol(struct sk_buff *skb)
-{
-	cnt_processed++;
-	printf("processing skb: length is: %d\n", skb->len);
-}
+/* static void __do_protocol(struct sk_buff *skb) */
+/* { */
+/* 	cnt_processed++; */
+/* 	printf("processing skb: length is: %d\n", skb->len); */
+/* } */
 
 static void *do_protocol(void *arg)
 {
@@ -152,9 +154,13 @@ static void *do_protocol(void *arg)
 		/* I'm using too many locks here? */
 		cnt_protocol++;
 		pthread_mutex_unlock(&qlock);
-
+		
 		while ((skb = skb_dequeue(&sk_buff_list)) != NULL)
-			__do_protocol(skb);
+		{
+			/* __do_protocol(skb); */
+			net_rx_action(skb);
+			cnt_processed++;
+		}
 		/* printf("trace: in function %s, cnt_protocol is: %d\n", */
 		/*        __FUNCTION__, cnt_protocol); */
 		
@@ -176,7 +182,13 @@ int main()
 
 	signal_init();
 	receive_thread_init();
+
 	
+	/* debug */
+	usleep(100000);
+	system("~/tmp/www/download.sh");
+	sleep(1);
+	raise(SIGINT);
 	pause();
 
 

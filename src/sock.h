@@ -13,7 +13,6 @@ struct sock {
 		int len;
 		struct sk_buff *head;
 	} sk_backlog;
-	int mtu;
 };
 		
 #endif

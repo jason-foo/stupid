@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h>
 
@@ -23,17 +24,19 @@ struct sk_buff *skb_dequeue(struct sk_buff_head *list)
 	return ret;
 }
 
-struct sk_buff *alloc_skb(struct sock *sock)
+/* no slab management or shared_info or DMA here, so shabby */
+struct sk_buff *alloc_skb(struct net_device *nic)
 {
 	struct sk_buff *skb = (struct sk_buff *)malloc(sizeof(struct sk_buff));
 	if (skb == NULL)
 		error_msg_and_die("allocating sk_buff");
 
-	/* should mtu be defined in net_device structure? */
-	skb->sock = sock;
-	skb->data = (unsigned char *)malloc(skb->sock->mtu * sizeof(unsigned char));
+	skb->nic = nic;
+
+	skb->data = (unsigned char *)malloc(skb->nic->mtu * sizeof(unsigned char));
 	if (skb->data == NULL)
 		error_msg_and_die("allocating sk_buff->data");
+	skb->head = skb->tail = skb->data;
 	return skb;
 }
 

@@ -19,6 +19,7 @@ struct net_device
 	unsigned int netmask;
 	unsigned int gateway;
 	unsigned char mac[7];
+	unsigned int mtu;
 };
 
 #endif

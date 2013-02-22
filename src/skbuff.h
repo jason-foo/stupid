@@ -18,7 +18,34 @@ struct sk_buff {
 	struct sock *sock;
 	int len;
 	unsigned short csum;
+
+	union
+	{
+		struct tcphdr *th;
+		struct udphdr *uh;
+		struct icmphdr *icmph;
+		struct igmphdr *igmph;
+		struct iphdr *ipiph;
+		unsigned char *raw;
+	} h;
+
+	union
+	{
+		struct iphdr *iph;
+		struct arphdr *arph;
+		unsigned char *raw;
+	} nh;
+
+	union
+	{
+		struct ethhdr *ethernet;
+		unsigned char *raw;
+	} mac;
+
+	unsigned char *head;
 	unsigned char *data;
+	unsigned char *tail;
+	unsigned char *end;
 };
 
 struct sk_buff_head {
