@@ -37,6 +37,8 @@ struct sk_buff *alloc_skb(struct net_device *nic)
 	if (skb->data == NULL)
 		error_msg_and_die("allocating sk_buff->data");
 	skb->head = skb->tail = skb->data;
+
+	skb->ip_summed = 0;
 	return skb;
 }
 

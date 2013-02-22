@@ -18,8 +18,12 @@ struct net_device
 	unsigned int ip;
 	unsigned int netmask;
 	unsigned int gateway;
-	unsigned char mac[7];
+	unsigned char dev_addr[7]; /* mac for ethernet */
+
 	unsigned int mtu;
+	unsigned short type;	/* ethernet assumed here */
+	unsigned short hard_header_len;
+	unsigned char addr_len;	/* hardware address length */
 };
 
 #endif

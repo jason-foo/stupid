@@ -35,14 +35,19 @@ void net_device_config_by_hand(struct net_device *nic)
 	strncpy(nic->name, "eth250", IFNAMSIZ - 1);
 	nic->next = NULL;
 
-	nic->ip = 0xc0a802fa;	/* 192.168.2.250 */
+	nic->ip = 0xc0a80265;	/* 192.168.2.101 */
 	nic->netmask = 0xffffff00;
 	nic->gateway = 0xc0a80201;
-	unsigned char mac[7] = {0xc8, 0x60, 0x00, 0x0c, 0x1b, 0x39, 0};
+
+	/* unsigned char eth0_mac[7] = {0xc8, 0x60, 0x00, 0x0c, 0x1b, 0x39, 0}; */
+	unsigned char wlan0_mac[7] = {0x78, 0x92, 0x9c, 0x82, 0x06, 0x68, 0};
 	int i;
 	for (i = 0; i < 7; i++)
-		nic->mac[i] = mac[i];
-	nic->mtu = 1536;
+		nic->dev_addr[i] = wlan0_mac[i];
+
+	nic->mtu = ETH_FRAME_LEN;
+	nic->hard_header_len = ETH_HLEN;
+	nic->addr_len = ETH_ALEN;
 }
 
 void net_device_init()
@@ -158,8 +163,9 @@ static void *do_protocol(void *arg)
 		while ((skb = skb_dequeue(&sk_buff_list)) != NULL)
 		{
 			/* __do_protocol(skb); */
-			net_rx_action(skb);
 			cnt_processed++;
+			printf("\n-- %d --\n", cnt_processed);
+			net_rx_action(skb);
 		}
 		/* printf("trace: in function %s, cnt_protocol is: %d\n", */
 		/*        __FUNCTION__, cnt_protocol); */
