@@ -1,11 +1,18 @@
 #include <stdio.h>
+#include <memory.h>
 #include <netinet/if_ether.h>
 #include <netinet/in.h>
 
+#include <sys/socket.h>
+#include <netinet/ether.h>
+#include <netpacket/packet.h>
+#include <net/if.h>
+
 #include "dev.h"
 #include "ip.h"
+#include "skbuff.h"
 
-#define skb_ethernet_offset() 14
+/* #define skb_ethernet_offset() 14 */
 /* #define dst_local(skb, dev) 1 */
 
 static int dst_local(struct sk_buff *skb)
@@ -34,7 +41,8 @@ void net_rx_action(struct sk_buff *skb)
 	__be16 proto;
 
 	skb->mac.ethernet = (struct ethhdr *)skb->data;
-	skb->data += skb_ethernet_offset();
+	/* skb->data += skb_ethernet_offset(); */
+	skb->data += sizeof(struct ethhdr);
 
 	if (!dst_local(skb))
 		goto drop;
@@ -59,4 +67,67 @@ drop:
 	printf("raw packet dropped\n");
 out:
 	return;
+}
+
+static int dev_xmit(struct sk_buff *skb)
+{
+	int fd;
+	struct sockaddr_ll sl;
+	memset(&sl, 0, sizeof(sl));
+	sl.sll_family = AF_PACKET;
+	sl.sll_ifindex = IFF_BROADCAST;
+
+	if ( (fd = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ALL))) < 0)
+	{
+		perror("sendfd");
+		return 1;
+	}
+
+	int k, len;
+	len = skb->len;
+	if (len < 60)
+		len = 60;
+	if ( (k = sendto(fd, skb->data, len, 0, (struct sockaddr *)
+			 &sl, sizeof(sl))) == -1)
+	{
+		perror("send");
+		return 1;
+	}
+	printf("%d bytes sent\n", k);
+	/* debug */
+	int i;
+	printf("sending raw packet...\n");
+	for (i = 0; i < skb->len; i++)
+		printf("%x ", skb->data[i]);
+	printf("\n");
+
+	return 0;
+}
+
+void dev_send(struct sk_buff *skb)
+{
+	struct ethhdr *eh;
+	int hl;
+	int i;
+
+	hl = sizeof(struct ethhdr);
+	skb->data -= hl;
+	skb->len += hl;
+
+	if (skb->head != skb->data)
+	{
+		printf("data demultiplexing error until dev_xmit\n");
+		return;
+	}
+
+	eh = (struct ethhdr *) skb->data;
+	/* in fact we should lookup the arp table */
+	unsigned char wlan0_dst_mac[7] = {0xc8, 0x3a, 0x35, 0x07, 0x86, 0xf0};
+	for (i = 0; i < 6; i++)
+		eh->h_dest[i] = wlan0_dst_mac[i];
+	for (i = 0; i < 6; i++)
+		eh->h_source[i] = skb->nic->dev_addr[i];
+	eh->h_proto = htons(ETH_P_IP);
+
+	dev_xmit(skb);
 }

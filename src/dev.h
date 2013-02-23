@@ -7,5 +7,6 @@
 
 extern void net_rx_action(struct sk_buff *skb);
 extern __be16 eth_type_trans(struct sk_buff *skb);
+extern void dev_send(struct sk_buff *skb);
 
 #endif

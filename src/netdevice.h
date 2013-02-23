@@ -2,6 +2,7 @@
 #define _NETDEVICE_H
 
 #include <net/if.h>
+#include <linux/types.h>
 
 /* Since this is not a real net device in kernel, so some attribute about
  * hardware and many complex features are omitted for now. And some operations
@@ -15,9 +16,9 @@ struct net_device
 	/* config attributes, read from files or be configured with DHCP
 	 * protocol later */
 
-	unsigned int ip;
-	unsigned int netmask;
-	unsigned int gateway;
+	__be32 ip;
+	__be32 netmask;
+	__be32 gateway;
 	unsigned char dev_addr[7]; /* mac for ethernet */
 
 	unsigned int mtu;

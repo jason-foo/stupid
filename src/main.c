@@ -17,6 +17,7 @@
 #include "sock.h"
 #include "skbuff.h"
 #include "dev.h"
+#include "udp.h"
 
 pthread_t recv_thread;
 pthread_t protocol_stack_thread;
@@ -24,20 +25,21 @@ pthread_cond_t qready = PTHREAD_COND_INITIALIZER;
 pthread_mutex_t qlock = PTHREAD_MUTEX_INITIALIZER;
 
 struct net_device nic;	/* it should be a list of virtual devices */
-struct sock sock_demo;
+struct sock sock_demo;	/* many of these should be allocated dynamically,
+			 * including sk_buff_list */
 
 struct sk_buff_head sk_buff_list;
 
 int cnt_recv, cnt_protocol, cnt_processed;
 
-void net_device_config_by_hand(struct net_device *nic)
+void net_device_config_manually(struct net_device *nic)
 {
 	strncpy(nic->name, "eth250", IFNAMSIZ - 1);
 	nic->next = NULL;
 
-	nic->ip = 0xc0a80265;	/* 192.168.2.101 */
-	nic->netmask = 0xffffff00;
-	nic->gateway = 0xc0a80201;
+	nic->ip = htonl(0xc0a80265);	/* 192.168.2.101 */
+	nic->netmask = htonl(0xffffff00);
+	nic->gateway = htonl(0xc0a80201);
 
 	/* unsigned char eth0_mac[7] = {0xc8, 0x60, 0x00, 0x0c, 0x1b, 0x39, 0}; */
 	unsigned char wlan0_mac[7] = {0x78, 0x92, 0x9c, 0x82, 0x06, 0x68, 0};
@@ -52,7 +54,7 @@ void net_device_config_by_hand(struct net_device *nic)
 
 void net_device_init()
 {
-	net_device_config_by_hand(&nic);
+	net_device_config_manually(&nic);
 }
 
 void sock_init()
@@ -60,8 +62,20 @@ void sock_init()
 	/* sock_demo.sk_receive_queue.next = NULL; */
 	/* sock_demo.sk_receive_queue.prev = NULL; */
 	/* sock_demo.sk_receive_queue.len = 0; */
-	/* and something else */
+	sock_demo.dest.ip = htonl(0xc0a80201);
+	sock_demo.dest.port = htons(7);
+	sock_demo.nic = &nic;
 	skb_queue_head_init(&sk_buff_list);
+}
+
+void write_pid_file()
+{
+	/* char *pid = "/run/milk.pid"; */
+	/* int fd; */
+	/* pid = open(pid, O_CREAT | O_WRONLY, 0644); */
+	/* if (pid < 0) */
+	/* 	error_msg_and_die("pid file"); */
+	
 }
 
 static void *do_recv_thread(void *arg);
@@ -84,9 +98,9 @@ void protocol_stack_thread_init()
 static void sig_int(int sig)
 {
 	/* is this signaled many times when using thread? */
-	fprintf(stdout, "statistics\n");
+	fprintf(stdout, "\n--- statistics ---\n");
 	fflush(stdout);
-	printf("count %d %d %d\n", cnt_recv, cnt_protocol, cnt_processed);
+	printf("%d %d %d\n", cnt_recv, cnt_protocol, cnt_processed);
 	exit(EXIT_SUCCESS);
 }
 	
@@ -177,6 +191,7 @@ static void *do_protocol(void *arg)
 
 void app_demo()
 {
+	printf("nm! not done yet...\n");
 }
 
 int main()
@@ -189,16 +204,17 @@ int main()
 	signal_init();
 	receive_thread_init();
 
-	
+	write_pid_file();
+	/* daemon(1, 1); */
+
+	udp_send((unsigned char *)"hello kitty", 12, &sock_demo);
 	/* debug */
 	usleep(100000);
-	system("~/tmp/www/download.sh");
-	sleep(1);
+	system("../test/www/download.sh");
+	usleep(2000);
+
 	raise(SIGINT);
 	pause();
-
-
-	/* daemon(1, 1); */
 
 	/* the application should be independently executed
 	   and it communicates with this daemon server with 
