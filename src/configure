@@ -1,0 +1,14 @@
+#!/bin/bash
+
+[ -e Makefile ] && mv Makefile Makefile.bak
+cp Makefile.in Makefile
+
+echo >> Makefile
+echo "# auto generated rules" >> Makefile
+
+for src in `ls *.c`; do
+	p=$(cat $src | grep "#include *\"" | grep -o "\".*" | grep -o "[^\"].*[^\"]" | xargs)
+	echo -n $src | sed 's/\.c/\.o/g' >> Makefile
+	echo -n " : " >> Makefile
+	echo $p >> Makefile
+done
