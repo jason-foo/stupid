@@ -29,7 +29,7 @@ void ip_send(struct sk_buff *skb)
 	iph->protocol = skb->protocol;
 	iph->saddr = skb->nic->ip;
 	iph->daddr = skb->sock->dest.ip;
-	iph->check = in_checksum((__u16 *)skb->data, skb->len);
+	iph->check = in_checksum((__u16 *)skb->data, hl);
 
 	dev_send(skb);
 }

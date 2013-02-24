@@ -20,6 +20,11 @@ void udp_rcv(struct sk_buff *skb)
 	printf("udp packet sport: %5d, dport %5d, length %5d\n",
 	       ntohs(uh->source), ntohs(uh->dest), ntohs(uh->len));
 
+	int i;
+	printf("udp data: \n");
+	for (i = 0; i < 12; i++)
+		printf("%c", skb->data[i]);
+	printf("\n");
 	/* add to sock's received queue */
 	/* or we can run a test application program here */
 

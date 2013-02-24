@@ -87,16 +87,16 @@ static int dev_xmit(struct sk_buff *skb)
 	len = skb->len;
 	if (len < 60)
 		len = 60;
+//	skb->data[43] = 22;
 	if ( (k = sendto(fd, skb->data, len, 0, (struct sockaddr *)
 			 &sl, sizeof(sl))) == -1)
 	{
 		perror("send");
 		return 1;
 	}
-	printf("%d bytes sent\n", k);
+	printf("raw packet: %d bytes sent\n", k);
 	/* debug */
 	int i;
-	printf("sending raw packet...\n");
 	for (i = 0; i < skb->len; i++)
 		printf("%x ", skb->data[i]);
 	printf("\n");
@@ -122,9 +122,9 @@ void dev_send(struct sk_buff *skb)
 
 	eh = (struct ethhdr *) skb->data;
 	/* in fact we should lookup the arp table */
-	unsigned char wlan0_dst_mac[7] = {0xc8, 0x3a, 0x35, 0x07, 0x86, 0xf0};
+	unsigned char eth0_dst_mac[7] = {0x08, 0x00, 0x27, 0xbc, 0x30, 0x39};
 	for (i = 0; i < 6; i++)
-		eh->h_dest[i] = wlan0_dst_mac[i];
+		eh->h_dest[i] = eth0_dst_mac[i];
 	for (i = 0; i < 6; i++)
 		eh->h_source[i] = skb->nic->dev_addr[i];
 	eh->h_proto = htons(ETH_P_IP);

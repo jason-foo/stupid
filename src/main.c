@@ -37,15 +37,16 @@ void net_device_config_manually(struct net_device *nic)
 	strncpy(nic->name, "eth250", IFNAMSIZ - 1);
 	nic->next = NULL;
 
-	nic->ip = htonl(0xc0a80265);	/* 192.168.2.101 */
+	/* nic->ip = htonl(0xc0a80265);	/\* 192.168.2.101 *\/ */
+	nic->ip = htonl(0x0a521953); /* 10.82.25.83 */
 	nic->netmask = htonl(0xffffff00);
-	nic->gateway = htonl(0xc0a80201);
+	nic->gateway = htonl(0x0a521901);
 
-	/* unsigned char eth0_mac[7] = {0xc8, 0x60, 0x00, 0x0c, 0x1b, 0x39, 0}; */
-	unsigned char wlan0_mac[7] = {0x78, 0x92, 0x9c, 0x82, 0x06, 0x68, 0};
+	unsigned char eth0_mac[7] = {0xc8, 0x60, 0x00, 0x0c, 0x1b, 0x39, 0};
+	/* unsigned char wlan0_mac[7] = {0x78, 0x92, 0x9c, 0x82, 0x06, 0x68, 0}; */
 	int i;
 	for (i = 0; i < 7; i++)
-		nic->dev_addr[i] = wlan0_mac[i];
+		nic->dev_addr[i] = eth0_mac[i];
 
 	nic->mtu = ETH_FRAME_LEN;
 	nic->hard_header_len = ETH_HLEN;
@@ -62,7 +63,8 @@ void sock_init()
 	/* sock_demo.sk_receive_queue.next = NULL; */
 	/* sock_demo.sk_receive_queue.prev = NULL; */
 	/* sock_demo.sk_receive_queue.len = 0; */
-	sock_demo.dest.ip = htonl(0xc0a80201);
+	/* sock_demo.dest.ip = htonl(0xc0a80201); /\* 192.168.2.1 *\/ */
+	sock_demo.dest.ip = htonl(0x0a521962);
 	sock_demo.dest.port = htons(7);
 	sock_demo.nic = &nic;
 	skb_queue_head_init(&sk_buff_list);
@@ -210,10 +212,10 @@ int main()
 	udp_send((unsigned char *)"hello kitty", 12, &sock_demo);
 	/* debug */
 	usleep(100000);
-	system("../test/www/download.sh");
+	/* system("../test/www/download.sh"); */
 	usleep(2000);
 
-	raise(SIGINT);
+	/* raise(SIGINT); */
 	pause();
 
 	/* the application should be independently executed
