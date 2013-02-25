@@ -19,7 +19,7 @@ void ip_rcv(struct sk_buff *skb)
 		skb->csum = in_checksum((__u16 *) iph, iph->ihl * 4);
 	if (skb->csum != 0)
 		goto drop;
-	if (iph->daddr != skb->nic->ip)
+	if (iph->daddr != skb->nic->ip) /* broadcast? */
 		goto drop;
 	
 	char s[20], d[20];

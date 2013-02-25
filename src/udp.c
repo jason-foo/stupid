@@ -41,7 +41,7 @@ void udp_send(unsigned char *data, unsigned int len, struct sock *sock)
 	/* the space between head and data should be enough for L2, L3 and L4
 	   headers */
 	/* and we assume that fragmentation is unnecessary for now*/
-	if (len > 100)
+	if (len > 1000)
 	{
 		printf("sorry, the data you want to transmit is too long\n");
 		goto out;
@@ -55,7 +55,7 @@ void udp_send(unsigned char *data, unsigned int len, struct sock *sock)
 	skb->data -= 8;
 	uh = (struct udphdr *) skb->data;
 	uh->source = htons(48250);
-	uh->dest = htons(7);	/* send the datagram to echo reply server */
+	uh->dest = sock->dest.port;	/* send the datagram to echo reply server */
 	uh->len = htons(skb->len);
 	uh->check = 0;
 	/* checksum with pseudo header, so we need a way to find the ip address */

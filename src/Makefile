@@ -11,7 +11,7 @@ clean:
 	rm server $(objs)
 
 # auto generated rules
-arp.o : arp.h skbuff.h dev.h
+arp.o : arp.h skbuff.h dev.h utils.h
 dev.o : dev.h ip.h skbuff.h arp.h utils.h
 ip_input.o : ip.h udp.h tcp.h utils.h
 ip_output.o : ip.h skbuff.h dev.h utils.h

@@ -8,6 +8,7 @@
 
 #include <netinet/if_ether.h>
 #include <net/if.h>
+#include <arpa/inet.h>
 
 #include "utils.h"
 
@@ -98,9 +99,9 @@ void net_device_config_manually(struct net_device *nic)
 	strncpy(nic->name, "eth250", IFNAMSIZ - 1);
 	nic->next = NULL;
 
-	nic->ip = htonl(0x0a521953); /* 10.82.25.83 */
-	nic->netmask = htonl(0xffffff00);
-	nic->gateway = htonl(0x0a521901);
+	nic->ip = inet_addr("10.82.25.83");
+	nic->netmask = inet_addr("255.255.255.0");
+	nic->gateway = inet_addr("10.82.25.1");
 
 	unsigned char eth0_mac[7] = {0xc8, 0x60, 0x00, 0x0c, 0x1b, 0x39, 0};
 	/* unsigned char wlan0_mac[7] = {0x78, 0x92, 0x9c, 0x82, 0x06, 0x68, 0}; */
@@ -119,7 +120,7 @@ void net_device_init()
 
 void sock_init()
 {
-	sock_demo.dest.ip = htonl(0x0a521962);
+	sock_demo.dest.ip = inet_addr("10.82.25.98");
 	sock_demo.dest.port = htons(7); /* echo server */
 	sock_demo.nic = &nic;
 	skb_queue_head_init(&sk_buff_list);
