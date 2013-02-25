@@ -19,7 +19,8 @@ struct net_device
 	__be32 ip;
 	__be32 netmask;
 	__be32 gateway;
-	unsigned char dev_addr[7]; /* mac for ethernet */
+	unsigned char dev_addr[ETH_ALEN]; /* mac for ethernet */
+	unsigned char broadcast[ETH_ALEN];
 
 	unsigned int mtu;
 	unsigned short type;	/* ethernet assumed here */

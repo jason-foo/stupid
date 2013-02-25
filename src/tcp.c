@@ -11,6 +11,6 @@ void tcp_rcv(struct sk_buff *skb)
 	th = skb->h.th = (struct tcphdr *) skb->data;
 	skb->data += th->doff * 4;
 
-	printf("tcp packet sport %5d, dport %5d, header length %5d\n",
+	printf("tcp: sport %5d, dport %5d, hlen %5d\n",
 	       ntohs(th->source), ntohs(th->dest), th->doff * 4);
 }

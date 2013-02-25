@@ -17,14 +17,11 @@ void udp_rcv(struct sk_buff *skb)
 
 	/* checksum is related to a pseudo L3 header, not handled for now */
 
-	printf("udp packet sport: %5d, dport %5d, length %5d\n",
+	printf("udp sport: %5d, dport %5d, length %5d\n",
 	       ntohs(uh->source), ntohs(uh->dest), ntohs(uh->len));
 
-	int i;
-	printf("udp data: \n");
-	for (i = 0; i < 12; i++)
-		printf("%c", skb->data[i]);
-	printf("\n");
+	data_dump("udp: data received", skb->data, ntohs(uh->len));
+
 	/* add to sock's received queue */
 	/* or we can run a test application program here */
 

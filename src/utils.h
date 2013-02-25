@@ -13,5 +13,8 @@ struct pseudo_header {
 
 extern void error_msg_and_die(char *);
 extern __u16 in_checksum(__u16 *addr, int len);
+extern void data_dump(char *des, unsigned char *data, int len);
+
+extern char *c_ntoa(__u32 addr);
 
 #endif

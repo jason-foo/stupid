@@ -1,6 +1,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <linux/types.h>
+#include <string.h>
+
+#include <netinet/in.h>
+#include <arpa/inet.h>
 
 #include "utils.h"
 
@@ -33,4 +37,29 @@ __u16 in_checksum(__u16 *addr, int len)
 	sum += (sum >> 16);
 	answer = ~sum;
 	return answer;
+}
+
+char *c_ntoa(__u32 addr)
+{
+	struct in_addr in_addr;
+	in_addr.s_addr = addr;
+	return inet_ntoa(in_addr);
+}
+
+void data_dump(char *des, unsigned char *data, int len)
+{
+	int i;
+	if (len > 64)
+		len = 64;
+
+	printf("%s: %d bytes", des, len);
+	for (i = 0; i < (len / 2 * 2);i += 2)
+	{
+		if (i % 16 == 0)
+			printf("\n         ");
+		printf("%02x %02x  ", data[i], data[i+1]);
+	}
+	if (i != len)
+		printf("%02x", data[len - 1]);
+	printf("\n");
 }

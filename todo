@@ -10,3 +10,8 @@ fragmentation
 config file
 arp table
 timer
+
+
+fix
+ip, netmask, gateway: inet_pton()
+mac: memcpy() memcmp()

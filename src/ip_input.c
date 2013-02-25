@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <linux/ip.h>
 #include <netinet/in.h>
+#include <string.h>
 
 #include "ip.h"
 #include "udp.h"
@@ -21,8 +22,11 @@ void ip_rcv(struct sk_buff *skb)
 	if (iph->daddr != skb->nic->ip)
 		goto drop;
 	
-	printf("ip packet, %5d bytes  dest: %x  src: %x  ttl:%d\n",
-	       ntohs(iph->tot_len), ntohl(iph->daddr), ntohl(iph->saddr), iph->ttl);
+	char s[20], d[20];
+	strncpy(s, c_ntoa(iph->saddr), 20);
+	strncpy(d, c_ntoa(iph->daddr), 20);
+	printf("ip: %d bytes  dest: %s  src: %s  ttl:%d\n",
+	       ntohs(iph->tot_len), d, s, iph->ttl);
 
 	switch (iph->protocol)
 	{
@@ -40,11 +44,9 @@ void ip_rcv(struct sk_buff *skb)
 		printf("Transport layer protocol %d not supported\n", iph->protocol);
 	}
 		
-	goto out;
+	return;
 
 drop:
-	printf("ip packet dropped with csum %x, header length: %d\n", skb->csum,
-	       iph->ihl * 4);
-out:
-	return;
+	printf("ip: dropped, csum %x, hlen: %d, dest %s\n", skb->csum, iph->ihl *
+	       4, c_ntoa(iph->daddr));
 }

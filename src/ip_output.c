@@ -4,7 +4,9 @@
 #include <linux/types.h>
 #include <netinet/in.h>
 #include <linux/ip.h>
+#include <net/ethernet.h>
 
+#include "ip.h"
 #include "skbuff.h"
 #include "dev.h"
 #include "utils.h"
@@ -31,5 +33,6 @@ void ip_send(struct sk_buff *skb)
 	iph->daddr = skb->sock->dest.ip;
 	iph->check = in_checksum((__u16 *)skb->data, hl);
 
+	skb->protocol = ETHERTYPE_IP;
 	dev_send(skb);
 }

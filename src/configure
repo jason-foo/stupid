@@ -7,7 +7,7 @@ echo >> Makefile
 echo "# auto generated rules" >> Makefile
 
 for src in `ls *.c`; do
-	p=$(cat $src | grep "#include *\"" | grep -o "\".*" | grep -o "[^\"].*[^\"]" | xargs)
+	p=$(cat $src | awk -F\" '$1 ~/^ *#include/ {print $2}' | xargs)
 	echo -n $src | sed 's/\.c/\.o/g' >> Makefile
 	echo -n " : " >> Makefile
 	echo $p >> Makefile
