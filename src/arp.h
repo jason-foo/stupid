@@ -6,7 +6,12 @@
 
 #include "skbuff.h"
 
-#define ARP_TABLE_SIZE 64
+#define ARP_TABLE_SIZE 256
+
+#define	ARP_INCOMP	0
+#define	ARP_COMP	1
+#define	ARP_MAX_LIFE	(3*60)
+#define	ARP_MAX_HOLD	5
 
 struct arppkt
 {
@@ -29,11 +34,10 @@ struct arptab {
 	struct sk_buff *hold;
 	unsigned short status;
 	unsigned char mac[ETH_ALEN];
-} arp_table[ARP_TABLE_SIZE];
+};
 
 void arp_rcv(struct sk_buff *skb);
 void arp_send(struct sk_buff *skb);
-
-pthread_mutex_t arp_lock;
+extern pthread_spinlock_t arp_lock;
 
 #endif

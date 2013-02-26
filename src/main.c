@@ -18,6 +18,7 @@
 #include "skbuff.h"
 #include "dev.h"
 #include "udp.h"
+#include "arp.h"
 
 pthread_t recv_thread;
 pthread_t protocol_stack_thread;
@@ -168,6 +169,7 @@ int main()
 	sock_init();
 
 	protocol_stack_thread_init();
+	pthread_spin_init(&arp_lock, PTHREAD_PROCESS_SHARED);
 
 	signal_init();
 	receive_thread_init();

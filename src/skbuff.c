@@ -42,8 +42,8 @@ struct sk_buff *alloc_skb(struct net_device *nic)
 	return skb;
 }
 
-void free_skb(struct sk_buff *skb)
+void skb_free(struct sk_buff *skb)
 {
-	free(skb->data);
-	free(skb);
+	free(skb->head);
+	/* free(skb); */
 }

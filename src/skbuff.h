@@ -125,6 +125,6 @@ static inline struct sk_buff *__skb_dequeue(struct sk_buff_head *list)
 }
 
 extern struct sk_buff *alloc_skb();
-extern void free_skb();
+extern void skb_free();
 
 #endif
