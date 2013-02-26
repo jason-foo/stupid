@@ -15,7 +15,7 @@ arp.o : arp.h skbuff.h dev.h utils.h
 dev.o : dev.h ip.h skbuff.h arp.h utils.h
 ip_input.o : ip.h udp.h tcp.h utils.h
 ip_output.o : ip.h skbuff.h dev.h utils.h
-main.o : utils.h skbuff.h netdevice.h sock.h skbuff.h dev.h udp.h
+main.o : utils.h skbuff.h netdevice.h sock.h skbuff.h dev.h udp.h arp.h
 skbuff.o : skbuff.h sock.h utils.h
 tcp.o : tcp.h skbuff.h
 udp.o : skbuff.h udp.h utils.h ip.h

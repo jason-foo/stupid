@@ -1,4 +1,4 @@
-/* most from uld */
+/* heavily borrowed from uld */
 
 #include <stdio.h>
 #include <stdlib.h>

@@ -1,3 +1,4 @@
+/* heavily borrowed from linux kernel */
 #ifndef _SKBUFF_H
 #define _SKBUFF_H
 
