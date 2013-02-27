@@ -114,9 +114,76 @@ void net_device_config_manually(struct net_device *nic)
 	memset(nic->broadcast, 0xff, ETH_ALEN);
 }
 
+#define BUFSIZE 80
+
+char *_trim(char *s, char *t)
+{
+	while (*s == ' ')
+		s++;
+	t--;
+	while (*t == ' ' || *t == '\n' || *t == '\0' || *t == 10)
+		*t = '\0', t--;
+	return s;
+}
+
+void net_device_config(struct net_device *nic)
+{
+	FILE *fp;
+	char buf[BUFSIZE];
+	char *key, *value;
+	char *d;
+	unsigned char *mac;
+
+	nic->next = NULL;
+	mac = nic->dev_addr;
+
+	fp = fopen("dev.conf", "r");
+	if (fp == NULL)
+		error_msg_and_die("Can not find dev.conf");
+
+	while (fgets(buf, BUFSIZE, fp) != NULL)
+	{
+		d = strchr(buf, '=');
+		if (d == NULL)
+			continue; /* class info or invalid */
+		*d = '\0';
+
+		key = _trim(buf, d);
+		d++;
+		value = _trim(d, d + strlen(d));
+
+		if (strcmp(key, "name") == 0)
+			strncpy(nic->name, value, IFNAMSIZ - 1);
+		else if (strcmp(key, "mac") == 0)
+		{
+			int t, i;
+			for (i = 0; i < ETH_ALEN; i++)
+			{
+				sscanf(value + i * 3, "%x", &t);
+				mac[i] = t;
+			}
+
+		}
+		else if (strcmp(key, "ip") == 0)
+			nic->ip = inet_addr(value);
+		else if (strcmp(key, "netmask") == 0)
+			nic->netmask = inet_addr(value);
+		else if (strcmp(key, "gateway") == 0)
+			nic->gateway = inet_addr(value);
+		else
+			error_msg_and_die("invalid config file");
+	}
+
+	nic->mtu = ETH_FRAME_LEN;
+	nic->hard_header_len = ETH_HLEN;
+	nic->addr_len = ETH_ALEN;
+	memset(nic->broadcast, 0xff, ETH_ALEN);
+}
+
 void net_device_init()
 {
-	net_device_config_manually(&nic);
+	net_device_config(&nic);
+	/* net_device_config_manually(&nic); */
 }
 
 void sock_init()
