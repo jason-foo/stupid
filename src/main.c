@@ -121,8 +121,8 @@ char *_trim(char *s, char *t)
 	while (*s == ' ')
 		s++;
 	t--;
-	while (*t == ' ' || *t == '\n' || *t == '\0' || *t == 10)
-		*t = '\0', t--;
+	while (*t == ' ' || *t == '\n' || *t == '\0')
+		*t-- = '\0';
 	return s;
 }
 

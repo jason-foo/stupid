@@ -19,7 +19,7 @@ struct sk_buff {
 	struct sock *sock;
 	int len;
 	unsigned short csum;
-	__u16 protocol;
+	__be16 protocol;
 	__u8 ip_summed;
 
 	union

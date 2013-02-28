@@ -15,7 +15,7 @@ servlen)
 	char sendline[MAXLINE], recvline[MAXLINE + 1];
 
 	while (fgets(sendline, MAXLINE, fp) != NULL) {
-		sendto(sockfd, sendline, strlen(sendline), 0, pservaddr, servaddr);
+		sendto(sockfd, sendline, strlen(sendline), 0, pservaddr, servlen);
 
 		n = recvfrom(sockfd, recvline, MAXLINE, 0, NULL, NULL);
 
