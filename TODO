@@ -1,9 +1,9 @@
 tcp
-API to l7, sock? IPC?
-ip routing
+API to l7, sock? IPC? queue?
 dhcp
 ip and tcp options
 fragmentation
+icmp
+dns?
 
-config file
 timer

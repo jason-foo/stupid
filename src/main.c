@@ -19,13 +19,15 @@
 #include "dev.h"
 #include "udp.h"
 #include "arp.h"
+#include "ip_route.h"
 
 pthread_t recv_thread;
 pthread_t protocol_stack_thread;
+pthread_t arp_queue_thread;
 pthread_cond_t qready = PTHREAD_COND_INITIALIZER;
 pthread_mutex_t qlock = PTHREAD_MUTEX_INITIALIZER;
 
-struct net_device nic;	/* it should be a list of virtual devices */
+extern struct net_device nic;
 struct sock sock_demo;	/* many of these should be allocated dynamically,
 			 * including sk_buff_list */
 
@@ -90,29 +92,31 @@ static void *do_protocol(void *arg)
 	return 0;
 }
 
+extern void *do_arp_queue(void *arg);
+
 void app_demo()
 {
 	printf("nm! not done yet...\n");
 }
 
-void net_device_config_manually(struct net_device *nic)
-{
-	strncpy(nic->name, "eth250", IFNAMSIZ - 1);
-	nic->next = NULL;
+/* void net_device_config_manually(struct net_device *nic) */
+/* { */
+/* 	strncpy(nic->name, "eth250", IFNAMSIZ - 1); */
+/* 	nic->next = NULL; */
 
-	nic->ip = inet_addr("10.82.25.83");
-	nic->netmask = inet_addr("255.255.255.0");
-	nic->gateway = inet_addr("10.82.25.1");
+/* 	nic->ip = inet_addr("10.82.25.83"); */
+/* 	nic->netmask = inet_addr("255.255.255.0"); */
+/* 	nic->gateway = inet_addr("10.82.25.1"); */
 
-	unsigned char eth0_mac[7] = {0xc8, 0x60, 0x00, 0x0c, 0x1b, 0x39, 0};
-	/* unsigned char wlan0_mac[7] = {0x78, 0x92, 0x9c, 0x82, 0x06, 0x68, 0}; */
-	memcpy(nic->dev_addr, eth0_mac, 6);
+/* 	unsigned char eth0_mac[7] = {0xc8, 0x60, 0x00, 0x0c, 0x1b, 0x39, 0}; */
+/* 	/\* unsigned char wlan0_mac[7] = {0x78, 0x92, 0x9c, 0x82, 0x06, 0x68, 0}; *\/ */
+/* 	memcpy(nic->dev_addr, eth0_mac, 6); */
 
-	nic->mtu = ETH_FRAME_LEN;
-	nic->hard_header_len = ETH_HLEN;
-	nic->addr_len = ETH_ALEN;
-	memset(nic->broadcast, 0xff, ETH_ALEN);
-}
+/* 	nic->mtu = ETH_FRAME_LEN; */
+/* 	nic->hard_header_len = ETH_HLEN; */
+/* 	nic->addr_len = ETH_ALEN; */
+/* 	memset(nic->broadcast, 0xff, ETH_ALEN); */
+/* } */
 
 #define BUFSIZE 80
 
@@ -188,7 +192,7 @@ void net_device_init()
 
 void sock_init()
 {
-	sock_demo.dest.ip = inet_addr("10.82.25.98");
+	sock_demo.dest.ip = inet_addr("10.82.58.191");
 	sock_demo.dest.port = htons(7); /* echo server */
 	sock_demo.nic = &nic;
 	skb_queue_head_init(&sk_buff_list);
@@ -217,6 +221,11 @@ void protocol_stack_thread_init()
 	pthread_create(&protocol_stack_thread, NULL, do_protocol, NULL);
 }
 
+void arp_queue_thread_init()
+{
+	pthread_create(&arp_queue_thread, NULL, do_arp_queue, NULL);
+}
+
 static void sig_int(int sig)
 {
 	/* is this signaled many times when using thread? */
@@ -234,17 +243,21 @@ int main()
 {
 	net_device_init();
 	sock_init();
+	route_table_init();
+	arp_init();
 
 	protocol_stack_thread_init();
-	pthread_spin_init(&arp_lock, PTHREAD_PROCESS_SHARED);
+	receive_thread_init();
+	arp_queue_thread_init();
 
 	signal_init();
-	receive_thread_init();
-
 	write_pid_file();
 	/* daemon(1, 1); */
 
+
 	udp_send((unsigned char *)"hello kitty", 12, &sock_demo);
+	sleep(1);
+	udp_send((unsigned char *)"what the xx", 12, &sock_demo);
 	/* debug */
 	usleep(100000);
 	/* system("../test/www/download.sh"); */

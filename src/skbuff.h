@@ -89,7 +89,8 @@ static inline void __skb_queue_after(struct sk_buff_head *list,
 	__skb_insert(newsk, prev, prev->next, list);
 }
 
-extern void skb_queue_head(struct sk_buff_head *list, struct sk_buff *newsk);static inline void __skb_queue_head(struct sk_buff_head *list,
+extern void skb_queue_head(struct sk_buff_head *list, struct sk_buff *newsk);
+static inline void __skb_queue_head(struct sk_buff_head *list,
 				    struct sk_buff *newsk)
 {
 	__skb_queue_after(list, (struct sk_buff *)list, newsk);

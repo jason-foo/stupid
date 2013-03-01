@@ -10,8 +10,12 @@
 
 #define	ARP_INCOMP	0
 #define	ARP_COMP	1
-#define	ARP_MAX_LIFE	(3*60)
+#define	ARP_MAX_LIFE	(1*60)
 #define	ARP_MAX_HOLD	5
+
+#define ARP_STATUS_EMPTY 0
+#define ARP_STATUS_REQUEST 1
+#define ARP_STATUS_OK 2
 
 struct arppkt
 {
@@ -39,5 +43,8 @@ struct arptab {
 void arp_rcv(struct sk_buff *skb);
 void arp_send(struct sk_buff *skb);
 extern pthread_spinlock_t arp_lock;
+extern struct arptab *arp_lookup(struct sk_buff *skb, __be32 dest, unsigned char *mac);
+extern void arp_init();
+extern void *do_arp_queue(void *arg);
 
 #endif

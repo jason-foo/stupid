@@ -3,6 +3,7 @@
 
 #include <net/if.h>
 #include <linux/types.h>
+#include <linux/if_ether.h>
 
 /* Since this is not a real net device in kernel, so some attribute about
  * hardware and many complex features are omitted for now. And some operations
@@ -27,5 +28,7 @@ struct net_device
 	unsigned short hard_header_len;
 	unsigned char addr_len;	/* hardware address length */
 };
+
+extern struct net_device nic;
 
 #endif

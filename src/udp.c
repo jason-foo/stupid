@@ -53,7 +53,7 @@ void udp_send(unsigned char *data, unsigned int len, struct sock *sock)
 		skb->data[i] = data[i];
 	/* udp header */
 	skb->data -= 8;
-	uh = (struct udphdr *) skb->data;
+	skb->h.uh = uh = (struct udphdr *) skb->data;
 	uh->source = htons(48250);
 	uh->dest = sock->dest.port;	/* send the datagram to echo server */
 	uh->len = htons(skb->len);

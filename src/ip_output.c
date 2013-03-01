@@ -10,6 +10,7 @@
 #include "skbuff.h"
 #include "dev.h"
 #include "utils.h"
+#include "ip_route.h"
 
 void ip_send(struct sk_buff *skb)
 {
@@ -21,7 +22,7 @@ void ip_send(struct sk_buff *skb)
 	skb->data -= hl;
 	skb->len += hl;
 
-	iph = (struct iphdr *) skb->data;
+	skb->nh.iph = iph = (struct iphdr *) skb->data;
 	memset(iph, 0, hl);
 
 	iph->version = 4;
@@ -33,6 +34,7 @@ void ip_send(struct sk_buff *skb)
 	iph->daddr = skb->sock->dest.ip;
 	iph->check = in_checksum((__u16 *)skb->data, hl);
 
+	skb->sock->dest.nexthop = route_table_lookup(skb->sock->dest.ip);
 	skb->protocol = ETHERTYPE_IP;
 	dev_send(skb);
 }

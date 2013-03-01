@@ -21,6 +21,7 @@ struct sock {
 	{
 		__u32 ip;
 		__u16 port;
+		__u32 nexthop;
 	} dest;       
 
 	struct net_device *nic;

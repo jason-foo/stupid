@@ -8,6 +8,7 @@
 #include <netpacket/packet.h>
 #include <net/ethernet.h>
 #include <net/if.h>
+#include <linux/ip.h>
 
 #include "dev.h"
 #include "ip.h"
@@ -69,6 +70,7 @@ static int dev_xmit(struct sk_buff *skb)
 		error_msg_and_die("send");
 
 	data_dump("raw: sent", skb->data, k);
+	skb_free(skb);
 
 	return 0;
 }
@@ -76,8 +78,10 @@ static int dev_xmit(struct sk_buff *skb)
 void dev_send(struct sk_buff *skb)
 {
 	struct ethhdr *eh;
+	unsigned char mac[ETH_ALEN];
 	int hl;
-	unsigned char eth0_dst_mac[7] = {0x08, 0x00, 0x27, 0xbc, 0x30, 0x39};
+
+	struct arptab *arpentry;
 
 	hl = sizeof(struct ethhdr);
 	skb->data -= hl;
@@ -93,8 +97,13 @@ void dev_send(struct sk_buff *skb)
 	switch (skb->protocol)
 	{
 	case ETHERTYPE_IP:
-		/* in fact we should lookup the arp table */
-		memcpy(eh->h_dest, eth0_dst_mac, ETH_ALEN);
+		arpentry = arp_lookup(skb, skb->sock->dest.nexthop, mac);
+		if (arpentry == NULL)
+		{
+			printf("put to wait list\n");
+			return;
+		}
+		memcpy(eh->h_dest, mac, ETH_ALEN);
 		memcpy(eh->h_source, skb->nic->dev_addr, ETH_ALEN);
 		eh->h_proto = htons(ETH_P_IP);
 		break;
