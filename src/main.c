@@ -256,7 +256,7 @@ int main()
 
 
 	udp_send((unsigned char *)"hello kitty", 12, &sock_demo);
-	sleep(1);
+	sleep(5);
 	udp_send((unsigned char *)"what the xx", 12, &sock_demo);
 	/* debug */
 	usleep(100000);

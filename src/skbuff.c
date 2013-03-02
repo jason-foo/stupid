@@ -44,6 +44,13 @@ struct sk_buff *alloc_skb(struct net_device *nic)
 
 void skb_free(struct sk_buff *skb)
 {
+	if (skb->head == NULL)
+		error_msg_and_die("the skb->data has been freed\n");
 	free(skb->head);
+	skb->head = NULL;
 	/* free(skb); */
+	if (skb == NULL)
+		error_msg_and_die("the skb has been freed\n");
+	free(skb);
+	skb = NULL;
 }

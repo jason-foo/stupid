@@ -10,7 +10,7 @@
 
 #define	ARP_INCOMP	0
 #define	ARP_COMP	1
-#define	ARP_MAX_LIFE	(1*60)
+#define	ARP_MAX_LIFE	(3*60)
 #define	ARP_MAX_HOLD	5
 
 #define ARP_STATUS_EMPTY 0

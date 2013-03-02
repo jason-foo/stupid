@@ -26,10 +26,6 @@ struct arptab arp_table[ARP_TABLE_SIZE];
 void arp_init()
 {
 	pthread_spin_init(&arp_lock, PTHREAD_PROCESS_SHARED);
-
-	/* unsigned char eth0_dst_mac[7] = {0x08, 0x00, 0x27, 0xbc, 0x30, 0x39}; */
-	/* memcpy(arp_table[1].mac, eth0_dst_mac, ETH_ALEN); */
-	arp_table[1].status = 1;
 	skb_queue_head_init(&arp_queue);
 }
 
@@ -155,6 +151,7 @@ void arp_rcv(struct sk_buff *skb)
 		skb->ip_summed = 0;
 		skb->protocol = ETHERTYPE_ARP;
 		dev_send(skb);
+		goto reused;
 		break;
 	case ARPOP_REPLY:
 		sip = *(unsigned int *)ap->__ar_sip;
@@ -204,6 +201,9 @@ void arp_rcv(struct sk_buff *skb)
 	default:
 		goto bad;
 	}
+
+reused:
+	return;
 drop:
 	skb_free(skb);
 	return;
