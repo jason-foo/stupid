@@ -1,9 +1,22 @@
-tcp
 API to l7, sock? IPC? queue?
-dhcp
-ip and tcp options
-fragmentation
-icmp
-dns?
+TCP
+DHCP
+IP:
+	ip and tcp options
+	fragmentation
+	forward, NAT
+UDP:
+	get port
+	connect, disconnect
+ICMP
+DNS
 
-timer
+sock:
+	dynamically allocate
+	find sock when demultiplexing
+
+sk_buff_list:
+	full implementation: queue
+pthread
+	refact
+	how many
