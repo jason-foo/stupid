@@ -12,10 +12,9 @@
 
 #include "utils.h"
 
-#include "skbuff.h"
-#include "netdevice.h"
 #include "sock.h"
 #include "skbuff.h"
+#include "netdevice.h"
 #include "dev.h"
 #include "udp.h"
 #include "arp.h"
@@ -24,6 +23,7 @@
 pthread_t recv_thread;
 pthread_t protocol_stack_thread;
 pthread_t arp_queue_thread;
+pthread_t sock_thread;
 pthread_cond_t qready = PTHREAD_COND_INITIALIZER;
 pthread_mutex_t qlock = PTHREAD_MUTEX_INITIALIZER;
 
@@ -64,7 +64,7 @@ static void *do_recv_thread(void *arg)
 		
 		pthread_mutex_lock(&qlock);
 		cnt_recv++;
-		skb_queue_head(&sk_buff_list, skb);
+		skb_queue_tail(&sk_buff_list, skb);
 		pthread_mutex_unlock(&qlock);
 		pthread_cond_signal(&qready);
 	}
@@ -93,30 +93,6 @@ static void *do_protocol(void *arg)
 }
 
 extern void *do_arp_queue(void *arg);
-
-void app_demo()
-{
-	printf("nm! not done yet...\n");
-}
-
-/* void net_device_config_manually(struct net_device *nic) */
-/* { */
-/* 	strncpy(nic->name, "eth250", IFNAMSIZ - 1); */
-/* 	nic->next = NULL; */
-
-/* 	nic->ip = inet_addr("10.82.25.83"); */
-/* 	nic->netmask = inet_addr("255.255.255.0"); */
-/* 	nic->gateway = inet_addr("10.82.25.1"); */
-
-/* 	unsigned char eth0_mac[7] = {0xc8, 0x60, 0x00, 0x0c, 0x1b, 0x39, 0}; */
-/* 	/\* unsigned char wlan0_mac[7] = {0x78, 0x92, 0x9c, 0x82, 0x06, 0x68, 0}; *\/ */
-/* 	memcpy(nic->dev_addr, eth0_mac, 6); */
-
-/* 	nic->mtu = ETH_FRAME_LEN; */
-/* 	nic->hard_header_len = ETH_HLEN; */
-/* 	nic->addr_len = ETH_ALEN; */
-/* 	memset(nic->broadcast, 0xff, ETH_ALEN); */
-/* } */
 
 #define BUFSIZE 80
 
@@ -187,7 +163,6 @@ void net_device_config(struct net_device *nic)
 void net_device_init()
 {
 	net_device_config(&nic);
-	/* net_device_config_manually(&nic); */
 }
 
 void sock_init()
@@ -226,6 +201,11 @@ void arp_queue_thread_init()
 	pthread_create(&arp_queue_thread, NULL, do_arp_queue, NULL);
 }
 
+void sock_thread_init()
+{
+	pthread_create(&sock_thread, NULL, do_sock, NULL);
+}
+
 static void sig_int(int sig)
 {
 	/* is this signaled many times when using thread? */
@@ -239,37 +219,37 @@ void signal_init()
 	signal(SIGINT, sig_int);
 }
 
+void app_demo()
+{
+	udp_send((unsigned char *)"hello kitty", 12, &sock_demo);
+	sleep(2);
+	udp_send((unsigned char *)"what the xx", 12, &sock_demo);
+	usleep(100000);
+}
+
 int main()
 {
+	write_pid_file();
+
 	net_device_init();
 	sock_init();
 	route_table_init();
 	arp_init();
 
-	protocol_stack_thread_init();
-	receive_thread_init();
-	arp_queue_thread_init();
-
 	signal_init();
-	write_pid_file();
+
+	protocol_stack_thread_init();
+	arp_queue_thread_init();
+	sock_thread_init();
+	receive_thread_init();	/* init this at last is better */
+
 	/* daemon(1, 1); */
 
-
-	udp_send((unsigned char *)"hello kitty", 12, &sock_demo);
-	sleep(5);
-	udp_send((unsigned char *)"what the xx", 12, &sock_demo);
-	/* debug */
-	usleep(100000);
-	/* system("../test/www/download.sh"); */
-	usleep(2000);
+	/* app_demo(); */
 
 	/* raise(SIGINT); */
-	pause();
 
-	/* the application should be independently executed
-	   and it communicates with this daemon server with 
-	   IPCs */
-	app_demo();
+	pause();
 
 	return 0;
 }
