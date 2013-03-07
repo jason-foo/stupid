@@ -2,26 +2,56 @@
 #include <stdlib.h>
 #include <pthread.h>
 
-#include "skbuff.h"
 #include "sock.h"
+#include "skbuff.h"
 #include "utils.h"
+#include "arp.h"
 
 void skb_queue_head(struct sk_buff_head *list,
-				    struct sk_buff *newsk)
+		    struct sk_buff *newsk)
 {
-	pthread_mutex_lock(&list->lock);
+	pthread_spin_lock(&list->lock);
 	__skb_queue_head(list, newsk);
-	pthread_mutex_unlock(&list->lock);
+	pthread_spin_unlock(&list->lock);
+}
+
+void skb_queue_tail(struct sk_buff_head *list,
+		    struct sk_buff *newsk)
+{
+	pthread_spin_lock(&list->lock);
+	__skb_queue_tail(list, newsk);
+	pthread_spin_unlock(&list->lock);
 }
 
 struct sk_buff *skb_dequeue(struct sk_buff_head *list)
 {
 	struct sk_buff *ret;
 
-	pthread_mutex_lock(&list->lock);
+	pthread_spin_lock(&list->lock);
 	ret = __skb_dequeue(list);
-	pthread_mutex_unlock(&list->lock);
+	pthread_spin_unlock(&list->lock);
 	return ret;
+}
+
+struct sk_buff *skb_dequeue_tail(struct sk_buff_head *list)
+{
+	struct sk_buff *ret;
+
+	pthread_spin_lock(&list->lock);
+	ret = __skb_dequeue_tail(list);
+	pthread_spin_unlock(&list->lock);
+	return ret;
+}
+
+struct sk_buff *skb_match(struct sk_buff_head *list, __be32 ip, __be16 port)
+{
+	struct sk_buff *skb;
+
+	if (skb_queue_len(list) == 0)
+		return NULL;
+	/* we assume all queued skb matches temporarily */
+	skb = skb_dequeue(list);
+	return skb;
 }
 
 /* no slab management or shared_info or DMA here, so shabby */
@@ -39,6 +69,7 @@ struct sk_buff *alloc_skb(struct net_device *nic)
 	skb->head = skb->tail = skb->data;
 
 	skb->ip_summed = 0;
+	skb->arp_try_times = ARP_MAX_TRY_TIMES;
 	return skb;
 }
 
@@ -48,7 +79,7 @@ void skb_free(struct sk_buff *skb)
 		error_msg_and_die("the skb->data has been freed\n");
 	free(skb->head);
 	skb->head = NULL;
-	/* free(skb); */
+
 	if (skb == NULL)
 		error_msg_and_die("the skb has been freed\n");
 	free(skb);
