@@ -148,9 +148,9 @@ void *do_dev_receive_thread(void *arg)
 		skb->len = n;
 		skb->tail = skb->end = skb->head + skb->len;
 		
-		pthread_mutex_lock(&dev_lock);
+		/* pthread_mutex_lock(&dev_lock); */
 		skb_queue_tail(&dev_backlog, skb);
-		pthread_mutex_unlock(&dev_lock);
+		/* pthread_mutex_unlock(&dev_lock); */
 		pthread_cond_signal(&dev_cond);
 	}
 	return 0;
