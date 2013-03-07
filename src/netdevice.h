@@ -13,9 +13,6 @@ struct net_device
 {
 	char name[IFNAMSIZ];
 	struct net_device *next;
-	
-	/* config attributes, read from files or be configured with DHCP
-	 * protocol later */
 
 	__be32 ip;
 	__be32 netmask;

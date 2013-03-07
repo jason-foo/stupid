@@ -14,6 +14,7 @@ void ip_rcv(struct sk_buff *skb)
 
 	iph = skb->nh.iph = (struct iphdr *) skb->data;
 	skb->data += iph->ihl * 4;
+	skb->len -= iph->ihl * 4;
 
 	if (!skb->ip_summed)
 		skb->csum = in_checksum((__u16 *) iph, iph->ihl * 4);

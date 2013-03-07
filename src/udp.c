@@ -57,6 +57,7 @@ void udp_rcv(struct sk_buff *skb)
 
 	uh = skb->h.uh = (struct udphdr *) skb->data;
 	skb->data += 8;
+	skb->len -= 8;
 
 	/* checksum is related to a pseudo L3 header, not checked for now */
 

@@ -17,6 +17,10 @@
 #include "arp.h"
 #include "utils.h"
 
+struct sk_buff_head dev_backlog;
+pthread_cond_t dev_cond = PTHREAD_COND_INITIALIZER;
+pthread_mutex_t dev_lock = PTHREAD_MUTEX_INITIALIZER;
+
 static int dst_local(struct sk_buff *skb)
 {
 	return memcmp(skb->mac.ethernet->h_dest, skb->nic->dev_addr, ETH_ALEN)
@@ -27,7 +31,8 @@ static int dst_local(struct sk_buff *skb)
 void net_rx_action(struct sk_buff *skb)
 {
 	skb->mac.ethernet = (struct ethhdr *)skb->data;
-	skb->data += sizeof(struct ethhdr);
+	skb->data += ETH_HLEN;
+	skb->len -= ETH_HLEN;
 
 	if (!dst_local(skb))
 		goto drop;
@@ -117,3 +122,55 @@ bad:
 	skb_free(skb);
 	printf("error internet protocol in dev_xmit\n");
 }
+
+static struct sk_buff *get_available_sk_buff()
+{
+	/* no reserved list desiged here for now */
+	return alloc_skb(&nic);
+}
+
+void *do_dev_receive_thread(void *arg)
+{
+	int sockfd, n;
+
+	if ( (sockfd = socket(PF_PACKET, SOCK_RAW, htons(ETH_P_ALL))) < 0)
+		error_msg_and_die("error create listening datalink socket, are you root?");
+	
+	for (;;)
+	{
+		struct sk_buff *skb = get_available_sk_buff();
+		if (skb == NULL)
+			error_msg_and_die("unknown error");
+
+		if ( (n = recvfrom(sockfd, skb->data, nic.mtu, 0, NULL, NULL)) < 0)
+			error_msg_and_die("receiving packets");
+
+		skb->len = n;
+		skb->tail = skb->end = skb->head + skb->len;
+		
+		pthread_mutex_lock(&dev_lock);
+		skb_queue_tail(&dev_backlog, skb);
+		pthread_mutex_unlock(&dev_lock);
+		pthread_cond_signal(&dev_cond);
+	}
+	return 0;
+}
+
+void *do_protocol_receive_thread(void *arg)
+{
+	struct sk_buff *skb;
+
+	for (;;)
+	{
+		pthread_mutex_lock(&dev_lock);
+		pthread_cond_wait(&dev_cond, &dev_lock);
+		pthread_mutex_unlock(&dev_lock);
+		
+		while ((skb = skb_dequeue(&dev_backlog)) != NULL)
+		{
+			net_rx_action(skb);
+		}
+	}
+	return 0;
+}
+
