@@ -1,5 +1,15 @@
 Copyright 2013 jason.foo. All rights reserved.
 
+authors:
+	jason-foo (fujianshuang@gmail.com)
+
+The main idea of the processing path is borrowed from Linux kernel.
+And the uld repository from Cisco System showed some simplified multiplexing and
+demultiplexing handling routines.
+Linux: git://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git
+uld: https://github.com/TrainingProject/vfio-user-level-drivers.git
+
+--------------------------------------------------------------------
 This program is free software; you may redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; version 2 of the License.
