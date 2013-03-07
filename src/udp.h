@@ -7,5 +7,6 @@
 
 extern void udp_rcv(struct sk_buff *skb);
 extern void udp_send(unsigned char *data, unsigned int len, struct sock *sock);
+extern void udp_ephemeral_port_free(__be16 port);
 
 #endif
