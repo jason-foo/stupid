@@ -1,22 +1,19 @@
-API to l7, sock? IPC? queue?
 TCP
-DHCP
 IP:
-	ip and tcp options
+	ip options
 	fragmentation
 	forward, NAT
-UDP:
-	get port
-	connect, disconnect
 ICMP
-DNS
+DHCP
 
-sock:
-	dynamically allocate
-	find sock when demultiplexing
+timer for asynchronous events
 
-sk_buff_list:
-	full implementation: queue
-pthread
-	refact
-	how many
+API:
+limitation of fifo
+	PIPI_BUF
+	open files number limitation
+	IPC garbage collection
+
+so replace fifo with?
+   UNIX domain sockets with asynchronous I/O
+   shared memory

@@ -7,10 +7,20 @@
 #include "netdevice.h"
 
 struct sk_buff_head;
-struct sk_buff;
+//struct sk_buff;
 
 struct sock {
-	struct sk_buff_head *sk_receive_queue;
+	int inuse;
+
+	struct sk_buff_head sk_receive_queue;
+
+	struct net_device *nic;
+
+	int domain;
+	int type;
+	int protocol;
+	__be32 ip;
+	__be16 port;
 	struct {
 		/* atomic_t  */
 		int len;
@@ -23,8 +33,10 @@ struct sock {
 		__u16 port;
 		__u32 nexthop;
 	} dest;       
-
-	struct net_device *nic;
 };
+
+#define SOCK_TABLE_SIZE 1024
+extern void *do_sock(void *arg);
+extern void sock_try_insert(struct sk_buff *skb);
 		
 #endif

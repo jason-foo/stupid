@@ -60,5 +60,5 @@ ncscope.*
 *~
 \#*#
 
-/src/server
+/src/stupid
 *.bak
