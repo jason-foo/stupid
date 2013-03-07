@@ -12,6 +12,7 @@
 
 #include "dev.h"
 #include "ip.h"
+#include "sock.h"
 #include "skbuff.h"
 #include "arp.h"
 #include "utils.h"
@@ -46,7 +47,7 @@ void net_rx_action(struct sk_buff *skb)
 
 drop:
 	/* printf("raw packet: dropped\n"); */
-	return;
+	skb_free(skb);
 }
 
 static int dev_xmit(struct sk_buff *skb)
@@ -62,14 +63,12 @@ static int dev_xmit(struct sk_buff *skb)
 
 	int k, len;
 	len = skb->len;
-	if (len < 60)
-		len = 60;
 
 	if ( (k = sendto(fd, skb->data, len, 0, (struct sockaddr *)
 			 &sl, sizeof(sl))) == -1)
 		error_msg_and_die("send");
 
-	data_dump("raw: sent", skb->data, k);
+	data_dump("--- raw packet sent", skb->data, k);
 	skb_free(skb);
 
 	return 0;
@@ -89,10 +88,7 @@ void dev_send(struct sk_buff *skb)
 	eh = (struct ethhdr *) skb->data;
 
 	if (skb->head > skb->data)
-	{
-		printf("data multiplexing error in dev_xmit\n");
-		return;
-	}
+		error_msg_and_die("data multiplexing error in dev_xmit\n");
 
 	switch (skb->protocol)
 	{
@@ -100,7 +96,7 @@ void dev_send(struct sk_buff *skb)
 		arpentry = arp_lookup(skb, skb->sock->dest.nexthop, mac);
 		if (arpentry == NULL)
 		{
-			printf("put to wait list\n");
+			printf("put to arp wait list\n");
 			return;
 		}
 		memcpy(eh->h_dest, mac, ETH_ALEN);
@@ -118,5 +114,6 @@ void dev_send(struct sk_buff *skb)
 	return;
 
 bad:
+	skb_free(skb);
 	printf("error internet protocol in dev_xmit\n");
 }

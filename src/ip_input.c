@@ -25,9 +25,10 @@ void ip_rcv(struct sk_buff *skb)
 	char s[20], d[20];
 	strncpy(s, c_ntoa(iph->saddr), 20);
 	strncpy(d, c_ntoa(iph->daddr), 20);
-	printf("ip: %d bytes  dest: %s  src: %s  ttl:%d\n",
+	printf("--- IP: %d bytes  dest: %s  src: %s  ttl:%d\n",
 	       ntohs(iph->tot_len), d, s, iph->ttl);
 
+	skb->protocol = iph->protocol;
 	switch (iph->protocol)
 	{
 	case IPPROTO_UDP:
@@ -37,8 +38,12 @@ void ip_rcv(struct sk_buff *skb)
 		tcp_rcv(skb);
 		break;
 	case IPPROTO_ICMP:
+		printf("ICMP packet received\n");
+		goto drop;
 		break;
 	case IPPROTO_IGMP:
+		printf("IGMP packet received\n");
+		goto drop;
 		break;
 	default:
 		printf("Transport layer protocol %d not supported\n", iph->protocol);
@@ -47,6 +52,8 @@ void ip_rcv(struct sk_buff *skb)
 	return;
 
 drop:
-	printf("ip: dropped, csum %x, hlen: %d, dest %s\n", skb->csum, iph->ihl *
-	       4, c_ntoa(iph->daddr));
+	skb_free(skb);
+	return;
+	/* printf("IP: dropped, csum %x, hlen: %d, dest %s\n", skb->csum, iph->ihl * */
+	/*        4, c_ntoa(iph->daddr)); */
 }
