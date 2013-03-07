@@ -7,9 +7,8 @@
 #include "skbuff.h"
 
 #define ARP_TABLE_SIZE 256
+#define ARP_MAX_TRY_TIMES 3
 
-#define	ARP_INCOMP	0
-#define	ARP_COMP	1
 #define	ARP_MAX_LIFE	(3*60)
 #define	ARP_MAX_HOLD	5
 

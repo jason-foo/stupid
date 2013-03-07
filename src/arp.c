@@ -65,6 +65,26 @@ static void arp_request(__be32 daddr)
 	dev_send(skb);
 }
 
+void arp_queue_try_insert(struct sk_buff *skb)
+{
+	if (skb->arp_try_times == 0)
+	{
+		printf("arp request too many times\n");
+		goto drop;
+	}
+	if (skb_queue_len(&arp_queue) > MAX_SKB_QUEUE_SIZE)
+	{
+		printf("arp queue is full\n");
+		goto drop;
+	}
+	
+	skb->arp_try_times--;
+	skb_queue_tail(&arp_queue, skb);
+	return;
+drop:
+	skb_free(skb);
+}
+
 struct arptab *arp_lookup(struct sk_buff *skb, __be32 daddr, unsigned char *mac)
 {
 	struct arptab *entry;
@@ -74,7 +94,7 @@ struct arptab *arp_lookup(struct sk_buff *skb, __be32 daddr, unsigned char *mac)
 	entry = &arp_table[arp_hash(daddr)];
 	if (entry->status == ARP_STATUS_EMPTY)
 	{
-		skb_queue_head(&arp_queue, skb);
+		arp_queue_try_insert(skb);
 		entry->status = ARP_STATUS_REQUEST;
 		pthread_spin_unlock(&arp_lock);
 		arp_request(daddr);
@@ -82,7 +102,7 @@ struct arptab *arp_lookup(struct sk_buff *skb, __be32 daddr, unsigned char *mac)
 	}
 	else if (entry->status == ARP_STATUS_REQUEST)
 	{
-		skb_queue_head(&arp_queue, skb);
+		arp_queue_try_insert(skb);
 		pthread_spin_unlock(&arp_lock);
 		arp_request(daddr);
 		goto wait;
@@ -92,7 +112,7 @@ struct arptab *arp_lookup(struct sk_buff *skb, __be32 daddr, unsigned char *mac)
 		gettimeofday(&tv, NULL);
 		if (tv.tv_sec > entry->time + ARP_MAX_LIFE)
 		{
-			skb_queue_head(&arp_queue, skb);
+			arp_queue_try_insert(skb);
 			entry->status = ARP_STATUS_REQUEST;
 			pthread_spin_unlock(&arp_lock);
 			arp_request(daddr);
@@ -128,7 +148,7 @@ void arp_rcv(struct sk_buff *skb)
 
 	/* skb->data += sizeof(struct arphdr); */
 
-	printf("arp\n");
+	printf("--- ARP: packet received\n");
 
 	if (ap->ar_hrd != htons(ARPHRD_ETHER) || ap->ar_pro != htons(ETHERTYPE_IP)
 	    || ap->ar_hln != ETH_ALEN || ap->ar_pln != 4)
@@ -204,13 +224,13 @@ void arp_rcv(struct sk_buff *skb)
 
 reused:
 	return;
+bad:
+	printf("arp: packet invalid\n");
 drop:
 	skb_free(skb);
 	return;
 unlock_bad:
 	pthread_spin_unlock(&arp_lock);
-bad:
-	printf("arp: packet invalid\n");
 	skb_free(skb);
 }
 
