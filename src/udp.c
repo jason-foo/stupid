@@ -62,9 +62,9 @@ void udp_rcv(struct sk_buff *skb)
 	/* checksum is related to a pseudo L3 header, not checked for now */
 
 	printf("    UDP: sport %d, dport %d, length %d\n",
-	       ntohs(uh->source), ntohs(uh->dest), ntohs(uh->len));
+	       ntohs(uh->source), ntohs(uh->dest), skb->len);
 
-	data_dump("    udp data", skb->data, ntohs(uh->len));
+	data_dump("    udp data", skb->data, skb->len);
 
 	sock_try_insert(skb);
 }
