@@ -40,15 +40,6 @@ routing, TCP connections handling), 3 threads are not enough. I'll try to
 implement a notification chain to handle the events(simulating the softirq may
 be too hard).
 
-               |----------------------|   
-dev <------->  | main protocol entiry |  <-------->  API  <-------> application
-               |----------------------|
-               | ethernet |  IP  | L4 |
-                         arp  ^
-			      |
-                              |
-                        static route
-
 Setup and Run
 =============
 
