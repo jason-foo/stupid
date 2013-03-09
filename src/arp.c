@@ -249,8 +249,8 @@ void *do_arp_queue(void *arg)
 		while ((skb = skb_dequeue(&arp_queue)) != NULL)
 		{
 			/* should I only wake up which with arp request */
-			skb->data += ETH_HLEN;
-			skb->len += ETH_HLEN;
+			/* skb->data += ETH_HLEN; */
+			/* skb->len += ETH_HLEN; */
 			dev_send(skb);
 		}
 	}

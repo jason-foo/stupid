@@ -88,8 +88,11 @@ void dev_send(struct sk_buff *skb)
 	struct arptab *arpentry;
 
 	hl = sizeof(struct ethhdr);
-	skb->data -= hl;
-	skb->len += hl;
+	if (skb->arp_try_times == ARP_MAX_TRY_TIMES)
+	{
+		skb->data -= hl;
+		skb->len += hl;
+	}
 	eh = (struct ethhdr *) skb->data;
 
 	if (skb->head > skb->data)
