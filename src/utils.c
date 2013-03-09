@@ -59,7 +59,7 @@ void data_dump(char *des, unsigned char *data, int len)
 	{
 		if (i % 16 == 0)
 			printf("\n         ");
-		printf("%02x %02x  ", data[i], data[i+1]);
+		printf("%02x%02x ", data[i], data[i+1]);
 	}
 	if (i != len)
 		printf("%02x", data[len - 1]);
