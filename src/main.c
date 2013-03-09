@@ -150,6 +150,7 @@ int main()
 	net_device_init();
 	route_table_init();
 	arp_init();
+	dev_xmit_init();
 
 	protocol_stack_thread_init();
 	arp_queue_thread_init();

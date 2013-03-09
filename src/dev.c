@@ -20,6 +20,8 @@
 struct sk_buff_head dev_backlog;
 pthread_cond_t dev_cond = PTHREAD_COND_INITIALIZER;
 pthread_mutex_t dev_lock = PTHREAD_MUTEX_INITIALIZER;
+struct sockaddr_ll sl;
+int send_fd;
 
 static int dst_local(struct sk_buff *skb)
 {
@@ -55,23 +57,27 @@ drop:
 	skb_free(skb);
 }
 
-static int dev_xmit(struct sk_buff *skb)
+void dev_xmit_init()
 {
-	int fd;
-	struct sockaddr_ll sl;
-	memset(&sl, 0, sizeof(sl));
+	bzero(&sl, sizeof(sl));
 	sl.sll_family = AF_PACKET;
 	sl.sll_ifindex = IFF_BROADCAST;
 
-	if ( (fd = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ALL))) < 0)
+	if ( (send_fd = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ALL))) < 0)
 		error_msg_and_die("sendfd");
 
-	int k, len;
-	len = skb->len;
+}
 
-	if ( (k = sendto(fd, skb->data, len, 0, (struct sockaddr *)
+static int dev_xmit(struct sk_buff *skb)
+{
+	int k;
+
+	if (skb->len < 60)
+		skb->len = 60;
+
+	if ( (k = sendto(send_fd, skb->data, skb->len, 0, (struct sockaddr *)
 			 &sl, sizeof(sl))) == -1)
-		error_msg_and_die("send");
+		error_msg_and_die("dev_xmit");
 
 	data_dump("--- raw packet sent", skb->data, k);
 	skb_free(skb);
