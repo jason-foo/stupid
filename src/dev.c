@@ -72,8 +72,12 @@ static int dev_xmit(struct sk_buff *skb)
 {
 	int k;
 
+	skb->tail = skb->data + skb->len;
 	if (skb->len < 60)
+	{
+		memset(skb->tail, 0, 60 - skb->len);
 		skb->len = 60;
+	}
 
 	if ( (k = sendto(send_fd, skb->data, skb->len, 0, (struct sockaddr *)
 			 &sl, sizeof(sl))) == -1)
