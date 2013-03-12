@@ -32,7 +32,6 @@ void ip_send(struct sk_buff *skb)
 	iph->ttl = 32;
 	iph->protocol = skb->protocol;
 	iph->saddr = skb->nic->ip;
-	skb->sock->ip = iph->saddr;
 	iph->daddr = skb->sock->dest.ip;
 	iph->check = in_checksum((__u16 *)skb->data, hl);
 
