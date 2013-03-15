@@ -6,7 +6,7 @@
 #include <unistd.h>
 #include <pthread.h>
 #include <sys/types.h>
-
+#include <sys/un.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
@@ -23,15 +23,17 @@
 struct sock sock_table[SOCK_TABLE_SIZE];
 pthread_spinlock_t sock_lock;
 
-char server_fifo[FIFO_MAXLEN] = "/tmp/fifo.stupid";
-char client_fifo[FIFO_MAXLEN];	/* write data to application */
-int server_fd, client_fd;
+struct sockaddr_un servaddr;
+int server_fd;
+char stupid_server_path[] = "/tmp/stupid_server";
 
-int d_sock_id;
+int client_fd;
+char stupid_client_path[128];
 
 void _sock_init()
 {
 	int i;
+	int addr_len;
 
 	pthread_spin_init(&sock_lock, PTHREAD_PROCESS_SHARED);
 
@@ -41,12 +43,23 @@ void _sock_init()
 		sock_table[i].nic = &nic;
 	}
 
-	if (access(server_fifo, F_OK) == 0)
-		unlink(server_fifo);
+	unlink(stupid_server_path);
+	bzero(&servaddr, sizeof(servaddr));
+	servaddr.sun_family = AF_LOCAL;
+	strncpy(servaddr.sun_path, stupid_server_path, sizeof(servaddr.sun_path));
 
-	umask(0);
-	if (mkfifo(server_fifo, 0777))
-		error_msg_and_die("mkfifo: /tmp/fifo.stupid\n");
+	if ( (server_fd = socket(AF_LOCAL, SOCK_DGRAM, 0)) < 0)
+		error_msg_and_die("UNIX domain socket error");
+
+	addr_len = offsetof(struct sockaddr_un, sun_path) +
+		strlen(servaddr.sun_path);
+	if (bind(server_fd, (struct sockaddr *)&servaddr, addr_len) < 0)
+		error_msg_and_die("UNIX domain socket bind error");
+	if (chmod(stupid_server_path, 0666) < 0)
+		error_msg_and_die("error set stupid_server's permission");
+
+	if ( (client_fd = socket(AF_LOCAL, SOCK_DGRAM, 0)) < 0)
+		error_msg_and_die("UNIX domain socket error");
 }
 
 /* since allocating sock_id is our work, we should be
@@ -89,10 +102,14 @@ void sock_free(struct sock *sock)
 {
 	pthread_spin_lock(&sock_lock);
 	/* sk_receive_queue free */
-	if (sock->port != 0)
+	/* unix domain socket files clean up */
+	if (sock->protocol == IPPROTO_UDP)
 	{
-		udp_ephemeral_port_free(sock->port);
-		sock->port = 0;
+		if (sock->port != 0)
+		{
+			udp_ephemeral_port_free(sock->port);
+			sock->port = 0;
+		}
 	}
 	pthread_spin_unlock(&sock_lock);
 }
@@ -153,7 +170,7 @@ void sock_try_insert(struct sk_buff *skb)
 		goto drop;
 	}
 
-	printf("sock_try_insert: inserting into queue\n");
+	printf("sock_try_insert: found corresponding sock, inserting\n");
 	skb_queue_tail(&sock->sk_receive_queue, skb);
 	return;
 drop:
@@ -171,13 +188,29 @@ void check_protocol_default(struct sock *sock)
 		sock->protocol = IPPROTO_TCP;
 }
 
-void write_to_user(int pid, char *data, int len)
+int write_to_app(struct sock *sock, char *data, int len)
 {
+	int tot;
+
+	tot = sendto(client_fd, data, len, 0, (struct sockaddr *) &sock->sa,
+		     sock->sa_len);
+	if (tot <= 0)
+		perror("write_to_app error");
+	else
+		printf("write_to_app: wrote %d bytes\n", tot);
+	return tot;
+}
+
+int read_from_app(char *data, int len)
+{
+	int tot;
+
+	tot = recv(server_fd, data, len, 0);
+	return tot;
 }
 
 void *do_sock(void *arg)
 {
-	int res;
 	char recvbuff[1600];
 	struct request_socket *req_socket;
 	struct send_packet *packet;
@@ -196,53 +229,44 @@ void *do_sock(void *arg)
 
 	for (;;)
 	{
-		/* if we don't open and close the fifo every time, the fifo will
-		   not be blocked after the first read, I don't know if select
-		   works here */
-		/* And the big problem is that linux has a limitation for
-		   opening files, so if the clients send request for thousands
-		   of times, the server_fifo can't be opened. Perhaps signal is
-		   necessary here or some other IPC. does select() work here? */
-		server_fd = open(server_fifo, O_RDONLY); 
-		if (server_fd == -1)
-			error_msg_and_die("error open server fifo");
-		res = read(server_fd, recvbuff, sizeof(recvbuff));
-		if (res == 0)
-			continue;
+		/* blocking reading */
+		read_from_app(recvbuff, sizeof(recvbuff));
 
 		switch (recvbuff[0]) /* the type */
 		{
 		case API_SOCKET_REQUEST:
 			req_socket = (struct request_socket *) recvbuff;
-			st = (struct socket_type *) &req_socket->content.socket;
-			if (st->domain != AF_INET ||st->type != SOCK_DGRAM ||
+			st = (struct socket_type *) &req_socket->socket;
+			if (st->domain != AF_INET || st->type != SOCK_DGRAM ||
 			    st->protocol != 0)
 			{
-				/* should send back error message */
+				/* in fact we should send back error message */
 				printf("unsupported socket type\n");
 				continue;
 			}
-			d_sock_id = sock_id = sock_alloc(st);
+			sock_id = sock_alloc(st);
+			if (sock_id == -1)
+				error_msg_and_die("wow, sock_table too small?");
+
 			sock = &sock_table[sock_id];
-			sock->domain = req_socket->content.socket.domain;
-			sock->type = req_socket->content.socket.type;
-			sock->protocol = req_socket->content.socket.protocol;
+			sock->domain = req_socket->socket.domain;
+			sock->type = req_socket->socket.type;
+			sock->protocol = req_socket->socket.protocol;
 			check_protocol_default(sock);
+
+			/* initialize the domain socket */
+			bzero(&sock->sa, sizeof(sock->sa));
+			sock->sa.sun_family = AF_LOCAL;
+			sprintf(stupid_client_path, "/tmp/stupid.%d", req_socket->pid);
+			strncpy(sock->sa.sun_path, stupid_client_path,
+				sizeof(sock->sa.sun_path));
+			sock->sa_len = offsetof(struct sockaddr_un, sun_path) + strlen(sock->sa.sun_path);
 
 			/* send response back to the client */
 			resp_socket.type = API_SOCKET_RESPONSE;
 			resp_socket.sock_id = sock_id;
-
-			sprintf(client_fifo, "/tmp/fifo.%d", req_socket->pid);
-			client_fd = open(client_fifo, O_WRONLY);
-			if (client_fd == -1)
-			{
-				printf("request_socket: error open client's fifo\n");
-				break;
-			}
 			tot_len = sizeof(struct response_socket);
-			write(client_fd, (char *)&resp_socket, tot_len);
-			close(client_fd);
+			write_to_app(sock, (char *)&resp_socket, tot_len);
 			break;
 		case API_SEND:
 			packet = (struct send_packet *) recvbuff;
@@ -272,15 +296,28 @@ void *do_sock(void *arg)
 			req_packet = (struct request_packet *) recvbuff;
 			sock_id = req_packet->sock_id;
 			sock_id_check(sock_id);
-			printf("do_sock: sock_id: %d\n", sock_id);
 			sock = &sock_table[sock_id];
 			destaddr = req_packet->destaddr;
 
 			resp_packet.type = API_RECEIVE_RESPONSE;
-			printf("do_sock: received %d packets\n",
-			       skb_queue_len(&sock->sk_receive_queue));
-			skb = skb_match(&sock->sk_receive_queue, sock->ip,
-					sock->port);
+
+			/* in fact this should be a notification chain for
+			   blocking reading. A timer is also necessary since
+			   user may want to read with timeout option set */
+			/* for now we assume the network traffic is not heave
+			   and packets sending to our machine will be received
+			   in a specific period of time */
+			int times = 30;
+			while (times--)
+			{
+				printf("do_sock: received %d packets\n",
+				       skb_queue_len(&sock->sk_receive_queue));
+				skb = skb_match(&sock->sk_receive_queue, sock->ip,
+						sock->port);
+				if (skb)
+					break;
+				usleep(50);
+			}
 
 			if (skb == NULL)
 			{
@@ -291,23 +328,13 @@ void *do_sock(void *arg)
 				       resp_packet.len);
 				skb_free(skb);
 			}
+
 			tot_len = offsetof(struct response_packet, data) +
 				resp_packet.len;
-
-			sprintf(client_fifo, "/tmp/fifo.%d", req_packet->pid);
-			client_fd = open(client_fifo, O_WRONLY);
-			if (client_fd == -1)
-			{
-				printf("requet packet: error open client's fifo\n");
-				break;
-			}
-			write(client_fd, (char *)&resp_packet, tot_len);
-			close(client_fd);
-
+			write_to_app(sock, (char *) &resp_packet, tot_len);
 			break;
 		default:
 			printf("unsupported communication type: %d\n", recvbuff[0]);
 		}
-		close(server_fd);
 	}
 }

@@ -1,6 +1,9 @@
 #ifndef _COMMON_H
 #define _COMMON_H
 
+#include <linux/types.h>
+#include <pthread.h>
+
 #define offsetof(st, m) ((size_t)(&((st *)0)->m))
 
 struct socket_type {
@@ -9,19 +12,14 @@ struct socket_type {
 	int protocol;
 };
 
-/* request for socket */
 struct request_socket {
 	unsigned char type;
 	pid_t pid;
-	union {
-		struct socket_type socket;
-	} content;
+	struct socket_type socket;
 };
 
-/* should socket response and received packets be separated? */
 struct response_socket {
 	unsigned char type;
-	key_t key;
 	int sock_id;
 };
 
@@ -43,7 +41,6 @@ struct send_packet {
 struct request_packet {
 	unsigned char type;
 	int sock_id;
-	pid_t pid;
 	struct sockaddr_in destaddr;
 	unsigned int len;	/* len is ommited for now */
 };
@@ -62,6 +59,5 @@ struct response_packet {
 #define API_BIND 6
 
 #define REQUEST_MAX_REPEAT 5
-#define FIFO_MAXLEN 128
 
 #endif

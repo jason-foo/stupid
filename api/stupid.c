@@ -10,17 +10,23 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <sys/un.h>
 
 #include "common.h"
 #include "stupid.h"
 
+int init_done;
 struct sfd sfd_table[MAX_SFD];
 pthread_spinlock_t sfd_lock;
 pid_t pid;
-char server_fifo[FIFO_MAXLEN] = "/tmp/fifo.stupid";
-char client_fifo[FIFO_MAXLEN];
 
-int server_fd, client_fd;
+struct sockaddr_un server;
+int server_fd;
+char stupid_server_path[] = "/tmp/stupid_server";
+
+struct sockaddr_un client;
+int client_fd;
+char stupid_client_path[128];
 
 void __error_sys(char *msg)
 {
@@ -28,22 +34,38 @@ void __error_sys(char *msg)
 	exit(EXIT_FAILURE);
 }
 
+/* the real initialization process will be done only once */
 void socket_init()
 {
-	static int done = 0;
+	int addr_len;
 
-	if (done)
+	if (init_done)
 		return;
 
 	pthread_spin_init(&sfd_lock, PTHREAD_PROCESS_SHARED);
 	pid = getpid();
-	sprintf(client_fifo, "/tmp/fifo.%d", pid);
-	if (mkfifo(client_fifo, 0777))
-		__error_sys(client_fifo);
-	if (access(server_fifo, F_OK) == -1)
-		__error_sys("server not started\n");
 
-	done = 1;
+	if ( (server_fd = socket(AF_LOCAL, SOCK_DGRAM, 0)) < 0)
+		__error_sys("UNIX domain socket: server\n");
+	if ( (client_fd = socket(AF_LOCAL, SOCK_DGRAM, 0)) < 0)
+		__error_sys("UNIX domain socket: client\n");
+
+	bzero(&server, sizeof(server));
+	server.sun_family = AF_LOCAL;
+	strncpy(server.sun_path, stupid_server_path, sizeof(server.sun_path));
+	addr_len = offsetof(struct sockaddr_un, sun_path) +
+		strlen(server.sun_path);
+
+	bzero(&client, sizeof(client));
+	client.sun_family = AF_LOCAL;
+	sprintf(stupid_client_path, "/tmp/stupid.%d", pid);
+	strncpy(client.sun_path, stupid_client_path, sizeof(client.sun_path));
+	addr_len = offsetof(struct sockaddr_un, sun_path) +
+		strlen(client.sun_path);
+	if (bind(client_fd, (struct sockaddr *) &client, addr_len) < 0)
+		__error_sys("bind to client");
+
+	init_done = 1;
 }
 
 static int sfd_alloc()
@@ -67,6 +89,27 @@ void sfd_release(int index)
 	pthread_spin_unlock(&sfd_lock);
 }
 
+int read_from_server(char *buf, int len)
+{
+	int tot = 0;
+
+	tot = recv(client_fd, buf, len, 0);
+	printf("read_from_server: received %d bytes\n", tot);
+
+	return tot;
+}
+
+int write_to_server(char *buf, int len)
+{
+	int tot;
+
+	tot = sendto(server_fd, buf, len, 0, (struct sockaddr *) &server,
+		     sizeof(server));
+	if (tot < 0)
+		__error_sys("sendto server error\n");
+	return tot;
+}
+
 int stupid_socket(int domain, int type, int protocol)
 {
 	struct request_socket req;
@@ -75,40 +118,30 @@ int stupid_socket(int domain, int type, int protocol)
 	int res, len;
 	char readbuf[1600];
 
+	/* the init process will only perform only once, and we should check the
+	   init_done value before using the socket */
 	socket_init();
 
 	if ((sfd = sfd_alloc()) == -1)
 		return -1;
 
-	server_fd = open(server_fifo, O_WRONLY | O_NONBLOCK);
-	if (server_fd == -1)
-		__error_sys("server not open");
-
 	req.type = API_SOCKET_REQUEST;
 	req.pid = pid;
-	req.content.socket.domain = domain;
-	req.content.socket.type = type;
-	req.content.socket.protocol = protocol;
+	req.socket.domain = domain;
+	req.socket.type = type;
+	req.socket.protocol = protocol;
 	len = sizeof(req);
 
-	res = write(server_fd, (char *)&req, len);
+	res = write_to_server((char *) &req, len);
 	if (len != res)
-		__error_sys("stupid_socket: write to server fifo");
+		__error_sys("stupid_socket: write to server fifo error");
 
-	client_fd = open(client_fifo, O_RDONLY);
-	if (client_fd == -1)
-		__error_sys("read from client fifo");
-
-	res = read(client_fd, readbuf, sizeof(readbuf));
-	close(client_fd);
+	read_from_server(readbuf, sizeof(readbuf));
 
 	resp = (struct response_socket *) readbuf;
 	if (resp->type == API_SOCKET_RESPONSE)
 	{
 		/* spin lock unnecessary here */
-		/* and we should replace fifo with shared memory or UNIX domain
-		   sockets */
-		memcpy((char *)&sfd_table[sfd].key, &resp->key, sizeof(key_t));
 		sfd_table[sfd].sock_id = resp->sock_id;
 	} else {
 		printf("unknown type id %d in response\n", resp->type);
@@ -127,7 +160,7 @@ void stupid_bind(int sfd, struct sockaddr_in *servaddr, int addr_len)
 	req_bind.sockaddr = *servaddr;
 	req_bind.len = addr_len;
 	tot_len = sizeof(struct request_bind);
-	write(server_fd, (char *)&req_bind, tot_len);
+	write_to_server((char *)&req_bind, tot_len);
 }
 
 void stupid_sendto(int sfd, char *sendbuff, int len, struct sockaddr_in *servaddr, int addr_len)
@@ -141,8 +174,7 @@ void stupid_sendto(int sfd, char *sendbuff, int len, struct sockaddr_in *servadd
 	packet.destaddr = *servaddr;
 	memcpy(packet.data, sendbuff, len);
 	tot_len = offsetof(struct send_packet, data) + len;
-	write(server_fd, (char *)&packet, tot_len);
-	usleep(10000);
+	write_to_server((char *) &packet, tot_len);
 }
 
 /* addr_len is not a value-result variable here */
@@ -156,21 +188,15 @@ int stupid_recvfrom(int sfd, char *recvbuff, int len, struct sockaddr_in *servad
 	/* send the request */
 	req_packet.type = API_RECEIVE_REQUEST;
 	req_packet.sock_id = sfd_table[sfd].sock_id;
-	req_packet.pid = pid;
 	req_packet.destaddr = *servaddr;
 	req_packet.len = len;
+
 	tot_len = sizeof(struct request_packet);
-	res = write(server_fd, (char *)&req_packet, tot_len);
+	res = write_to_server((char *) &req_packet, tot_len);
 	if (tot_len != res)
 		__error_sys("write to server fifo");
 
-	/* time window here? */
-	client_fd = open(client_fifo, O_RDONLY);
-	if (client_fd == -1)
-		__error_sys("read from client fifo");
-
-	res = read(client_fd, readbuf, sizeof(readbuf));
-	close(client_fd);
+	read_from_server(readbuf, sizeof(readbuf));
 
 	resp_packet = (struct response_packet *) readbuf;
 	if (resp_packet->type != API_RECEIVE_RESPONSE)

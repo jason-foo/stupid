@@ -2,6 +2,7 @@
 #define _SOCK_H
 
 #include <linux/types.h>
+#include <sys/un.h>
 
 #include "skbuff.h"
 #include "netdevice.h"
@@ -16,16 +17,14 @@ struct sock {
 
 	struct net_device *nic;
 
+	struct sockaddr_un sa;
+	int sa_len;
+
 	int domain;
 	int type;
 	int protocol;
 	__be32 ip;
 	__be16 port;
-	struct {
-		/* atomic_t  */
-		int len;
-		struct sk_buff *head;
-	} sk_backlog;
 
 	struct
 	{

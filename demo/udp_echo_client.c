@@ -39,7 +39,6 @@ void test_app()
 		stupid_sendto(sfd, content[i], strlen(content[i]), &servaddr,
 			      sizeof(servaddr));
 		len = stupid_recvfrom(sfd, recvbuff, 4096, &servaddr, sizeof(servaddr));
-		printf("received %d bytes\n", len);
 		recvbuff[len] = 0;
 		printf("%s\n", recvbuff);
 	}

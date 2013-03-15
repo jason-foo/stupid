@@ -10,12 +10,4 @@ timer for asynchronous events
       TCP
       delay for arp(now it's delayed by normal CPU calc cycle)
 
-API:
-limitation of fifo
-	PIPI_BUF
-	open files number limitation
-	IPC garbage collection
-
-so replace fifo with?
-   UNIX domain sockets with asynchronous I/O
-   shared memory
+notification chain for waiting events
