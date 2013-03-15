@@ -7,6 +7,7 @@
 
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <sys/time.h>
 
 #include "utils.h"
 
@@ -64,4 +65,11 @@ void data_dump(char *des, unsigned char *data, int len)
 	if (i != len)
 		printf("%02x", data[len - 1]);
 	printf("\n");
+}
+
+struct timeval tv;
+int get_second()
+{
+	gettimeofday(&tv, NULL);
+	return tv.tv_sec;
 }

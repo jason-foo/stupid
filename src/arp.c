@@ -4,13 +4,11 @@
 #include <stdlib.h>
 #include <string.h>
 #include <pthread.h>
-#include <sys/time.h>
 
 #include <linux/if_ether.h>
 #include <netinet/in.h>
 #include <net/ethernet.h>
 #include <net/if_arp.h>
-#include <time.h>
 
 #include "arp.h"
 #include "skbuff.h"
@@ -88,7 +86,6 @@ drop:
 struct arptab *arp_lookup(struct sk_buff *skb, __be32 daddr, unsigned char *mac)
 {
 	struct arptab *entry;
-	struct timeval tv;
 
 	pthread_spin_lock(&arp_lock);
 	entry = &arp_table[arp_hash(daddr)];
@@ -109,8 +106,7 @@ struct arptab *arp_lookup(struct sk_buff *skb, __be32 daddr, unsigned char *mac)
 	}
 	else
 	{
-		gettimeofday(&tv, NULL);
-		if (tv.tv_sec > entry->time + ARP_MAX_LIFE)
+		if (get_second() > entry->time + ARP_MAX_LIFE)
 		{
 			arp_queue_try_insert(skb);
 			entry->status = ARP_STATUS_REQUEST;
@@ -137,7 +133,6 @@ void arp_rcv(struct sk_buff *skb)
 	struct arptab *h;
 	int hl;
 	struct net_device *nic;
-	struct timeval tv;
 
 	hl = sizeof(struct ethhdr);
 	skb->len -= hl;
@@ -185,13 +180,12 @@ void arp_rcv(struct sk_buff *skb)
 			if (ap->__ar_sha[0] & 1) /* why? */
 				goto unlock_bad;
 			memcpy(h->mac, ap->__ar_sha, ETH_ALEN);
-			gettimeofday(&tv, NULL);
 			/* if (h->hold && (tv.tv_sec - h->time > ARP_MAX_HOLD)) */
 			/* { */
 			/* 	skb_free(h->hold); */
 			/* 	h->hold = NULL; */
 			/* } */
-			h->time = tv.tv_sec;
+			h->time = get_second();
 			if (h->status == ARP_STATUS_REQUEST)
 			{
 				h->status = ARP_STATUS_OK;
