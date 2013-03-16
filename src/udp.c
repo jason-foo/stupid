@@ -36,12 +36,13 @@ __be16 udp_ephemeral_port_alloc()
 		}
 	}
 	printf("didn't get available ephemeral port\n");
-	return ret;
+	return 0;
 }
 
 void udp_ephemeral_port_free(__be16 port)
 {
 	int hport = ntohs(port);
+	hport -= port_range_lower_bound;
 	if (port_table[hport] == 0)
 	{
 		printf("error release udp ephemeral port\n");
@@ -99,7 +100,7 @@ void udp_send(unsigned char *data, unsigned int len, struct sock *sock)
 	skb->h.uh = uh = (struct udphdr *) skb->data;
 
 	if (skb->sock->port == 0)
-		skb->sock->port = htons(udp_ephemeral_port_alloc());
+		skb->sock->port = udp_ephemeral_port_alloc();
 	uh->source = skb->sock->port;
 	uh->dest = sock->dest.port;
 	uh->len = htons(skb->len);
