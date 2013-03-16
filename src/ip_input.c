@@ -52,7 +52,9 @@ void ip_rcv(struct sk_buff *skb)
 		goto drop;
 		break;
 	default:
-		printf("Transport layer protocol %d not supported\n", iph->protocol);
+		printf("Transport layer protocol %d not supported\n",
+		       iph->protocol);
+		goto drop;
 	}
 		
 	return;
