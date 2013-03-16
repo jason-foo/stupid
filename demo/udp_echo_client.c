@@ -7,7 +7,7 @@
 
 #include "stupid.h"
 
-char dst[25] = "10.82.25.138";
+char dst[25] = "10.82.58.229";
 #define ECHO_PORT 7
 
 char content[][80] = {"hello kitty", "what the"};

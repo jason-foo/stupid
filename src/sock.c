@@ -14,9 +14,9 @@
 #include <linux/tcp.h>
 #include <linux/ip.h>
 
+#include "utils.h"
 #include "../include/common.h"
 #include "sock.h"
-#include "utils.h"
 #include "udp.h"
 #include "skbuff.h"
 
@@ -28,7 +28,8 @@ int server_fd;
 char stupid_server_path[] = "/tmp/stupid_server";
 
 int client_fd;
-char stupid_client_path[128];
+
+int lock_fd;
 
 void _sock_init()
 {
@@ -38,10 +39,7 @@ void _sock_init()
 	pthread_spin_init(&sock_lock, PTHREAD_PROCESS_SHARED);
 
 	for (i = 0; i < SOCK_TABLE_SIZE; i++)
-	{
-		skb_queue_head_init(&sock_table[i].sk_receive_queue);
 		sock_table[i].nic = &nic;
-	}
 
 	unlink(stupid_server_path);
 	bzero(&servaddr, sizeof(servaddr));
@@ -80,29 +78,15 @@ void sock_id_check(int sock_id)
 	pthread_spin_unlock(&sock_lock);
 }
 
-int sock_alloc(struct socket_type *st)
+void sock_active_update(struct sock *sock)
 {
-	int i;
-
-	pthread_spin_lock(&sock_lock);
-	for (i = 0; i < SOCK_TABLE_SIZE; i++)
-		if (sock_table[i].inuse == 0)
-		{
-			sock_table[i].inuse = 1;
-			pthread_spin_unlock(&sock_lock);
-			if (st->type == SOCK_DGRAM)
-				sock_table[i].protocol = IPPROTO_UDP;
-			return i;
-		}
-	pthread_spin_unlock(&sock_lock);
-	return -1;
+	sock->time_active = get_second();
 }
 
-void sock_free(struct sock *sock)
+void __sock_free(struct sock *sock)
 {
-	pthread_spin_lock(&sock_lock);
-	/* sk_receive_queue free */
-	/* unix domain socket files clean up */
+	skb_queue_free(&sock->sk_receive_queue);
+	unlink(sock->sa_path);
 	if (sock->protocol == IPPROTO_UDP)
 	{
 		if (sock->port != 0)
@@ -111,7 +95,54 @@ void sock_free(struct sock *sock)
 			sock->port = 0;
 		}
 	}
+}
+
+void sock_free(struct sock *sock)
+{
+	pthread_spin_lock(&sock_lock);
+	__sock_free(sock);
 	pthread_spin_unlock(&sock_lock);
+}
+
+int sock_alloc(struct socket_type *st)
+{
+	struct sock *sock;
+	int time = get_second();
+	int i;
+	int app_running;
+
+	pthread_spin_lock(&sock_lock);
+	for (i = 0; i < SOCK_TABLE_SIZE; i++)
+	{
+		sock = &sock_table[i];
+
+		if (sock->inuse == 1)
+		{
+			if (sock->time_active + SOCK_CHECK_TIME < time)
+			{
+				app_running = is_sockid_locked(lock_fd, i);
+				if (!app_running)
+				{
+					__sock_free(sock);
+					sock->inuse = 0;
+				}
+				else
+					sock->time_active = time;
+			}
+		}
+
+		if (sock->inuse == 0)
+		{
+			sock->inuse = 1;
+			pthread_spin_unlock(&sock_lock);
+			skb_queue_head_init(&sock->sk_receive_queue);
+			if (st->type == SOCK_DGRAM)
+				sock->protocol = IPPROTO_UDP;
+			return i;
+		}
+	}
+	pthread_spin_unlock(&sock_lock);
+	return -1;
 }
 
 struct sock *sock_match(struct sk_buff *skb)
@@ -249,6 +280,7 @@ void *do_sock(void *arg)
 				error_msg_and_die("wow, sock_table too small?");
 
 			sock = &sock_table[sock_id];
+			sock_active_update(sock);
 			sock->domain = req_socket->socket.domain;
 			sock->type = req_socket->socket.type;
 			sock->protocol = req_socket->socket.protocol;
@@ -257,8 +289,8 @@ void *do_sock(void *arg)
 			/* initialize the domain socket */
 			bzero(&sock->sa, sizeof(sock->sa));
 			sock->sa.sun_family = AF_LOCAL;
-			sprintf(stupid_client_path, "/tmp/stupid.%d", req_socket->pid);
-			strncpy(sock->sa.sun_path, stupid_client_path,
+			sprintf(sock->sa_path, "/tmp/stupid.%d", req_socket->pid);
+			strncpy(sock->sa.sun_path, sock->sa_path,
 				sizeof(sock->sa.sun_path));
 			sock->sa_len = offsetof(struct sockaddr_un, sun_path) + strlen(sock->sa.sun_path);
 
@@ -274,6 +306,7 @@ void *do_sock(void *arg)
 			sock_id_check(sock_id);
 
 			sock = &sock_table[sock_id];
+			sock_active_update(sock);
 			destaddr = packet->destaddr;
 			sock->dest.ip = destaddr.sin_addr.s_addr;
 			sock->dest.port = destaddr.sin_port;
@@ -286,6 +319,7 @@ void *do_sock(void *arg)
 			sock_id_check(sock_id);
 
 			sock = &sock_table[sock_id];
+			sock_active_update(sock);
 			/* send error message back and break? */
 			if (sock->domain != req_bind->sockaddr.sin_family)
 				printf("bind: wrong protocol family\n");
@@ -297,6 +331,7 @@ void *do_sock(void *arg)
 			sock_id = req_packet->sock_id;
 			sock_id_check(sock_id);
 			sock = &sock_table[sock_id];
+			sock_active_update(sock);
 			destaddr = req_packet->destaddr;
 
 			resp_packet.type = API_RECEIVE_RESPONSE;
@@ -307,7 +342,7 @@ void *do_sock(void *arg)
 			/* for now we assume the network traffic is not heave
 			   and packets sending to our machine will be received
 			   in a specific period of time */
-			int times = 30;
+			int times = 20;
 			while (times--)
 			{
 				printf("do_sock: received %d packets\n",
@@ -316,7 +351,7 @@ void *do_sock(void *arg)
 						sock->port);
 				if (skb)
 					break;
-				usleep(50);
+				usleep(100);
 			}
 
 			if (skb == NULL)

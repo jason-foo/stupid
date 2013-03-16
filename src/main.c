@@ -5,6 +5,8 @@
 #include <netinet/in.h>
 #include <unistd.h>
 #include <signal.h>
+#include <fcntl.h>
+#include <sys/stat.h>
 
 #include <netinet/if_ether.h>
 #include <net/if.h>
@@ -12,6 +14,7 @@
 
 #include "utils.h"
 
+#include "../include/common.h"
 #include "sock.h"
 #include "skbuff.h"
 #include "netdevice.h"
@@ -25,6 +28,17 @@ pthread_t protocol_stack_thread;
 pthread_t arp_queue_thread;
 pthread_t sock_thread;
 extern struct sk_buff_head dev_backlog;
+
+/* we use this pid file for three purposes: pid, unique server, user application
+ * detection */
+extern int lock_fd;
+
+void lock_init()
+{
+	if (is_stupid_started(lock_fd))
+		error_msg_and_die("stupid is already started\n");
+	write_lock(lock_fd, MAX_LOCK_BIT, SEEK_SET, 1);
+}
 
 #define BUFSIZE 80
 
@@ -98,17 +112,20 @@ void net_device_init()
 	net_device_config(&nic);
 }
 
+#define LOCKMODE (S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH)
+
 void write_pid_file()
 {
 	char *pidfile = "/run/stupid.pid";
-	FILE *fp;
+	char buf[16];
 
-	unlink(pidfile);
-	fp = fopen(pidfile, "w");
-	if (fp == NULL)
-		error_msg_and_die("pid file");
-	fprintf(fp, "%d\n", getpid());
-	fclose(fp);
+	if ( (lock_fd = open(pidfile, O_RDWR | O_CREAT, LOCKMODE)) < 0)
+		error_msg_and_die("cant't open pidfile");
+	sprintf(buf, "%ld", (long)getpid());
+	ftruncate(lock_fd, 0);
+	write(lock_fd, buf, strlen(buf) + 1);
+	if (fchmod(lock_fd, 0666) < 0)
+		error_msg_and_die("error setting permission to lock file");
 }
 
 void receive_thread_init()
@@ -145,6 +162,7 @@ void signal_init()
 int main()
 {
 	write_pid_file();
+	lock_init();
 	signal_init();
 
 	net_device_init();

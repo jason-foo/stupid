@@ -171,5 +171,6 @@ extern struct sk_buff *skb_match(struct sk_buff_head *list, __be32 ip, __be16
 
 extern struct sk_buff *alloc_skb();
 extern void skb_free();
+extern void skb_queue_free(struct sk_buff_head *list);
 
 #endif

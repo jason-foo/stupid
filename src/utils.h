@@ -18,4 +18,8 @@ extern void data_dump(char *des, unsigned char *data, int len);
 extern char *c_ntoa(__u32 addr);
 extern int get_second();
 
+extern int lock_reg(int fd, int cmd, int type, off_t offset, int whence, off_t
+		    len);
+extern pid_t lock_test(int fd, int type, off_t offset, int whence, off_t len);
+
 #endif

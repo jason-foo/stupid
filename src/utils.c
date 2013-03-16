@@ -8,7 +8,10 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <sys/time.h>
+#include <fcntl.h>
 
+#include "../include/common.h"
+#include "sock.h"
 #include "utils.h"
 
 void error_msg_and_die(char *msg)
@@ -72,4 +75,43 @@ int get_second()
 {
 	gettimeofday(&tv, NULL);
 	return tv.tv_sec;
+}
+
+int lock_reg(int fd, int cmd, int type, off_t offset, int whence, off_t len)
+{
+	struct flock lock;
+	int ret;
+
+	lock.l_type = type;
+	lock.l_start = offset;
+	lock.l_whence = whence;
+	lock.l_len = len;
+
+	ret = fcntl(fd, cmd, &lock);
+	if (ret < 0)
+	{
+		perror("lock_reg: fcntl error");
+		exit(1);
+	}
+	return ret;
+}
+
+pid_t lock_test(int fd, int type, off_t offset, int whence, off_t len)
+{
+	struct flock lock;
+
+	lock.l_type = type;
+	lock.l_start = offset;
+	lock.l_whence = whence;
+	lock.l_len = len;
+
+	if (fcntl(fd, F_GETLK, &lock) < 0)
+	{
+		perror("lock_test: fcntl error");
+		exit(1);
+	}
+
+	if (lock.l_type == F_UNLCK)
+		return 0;
+	return lock.l_pid;
 }

@@ -85,3 +85,13 @@ void skb_free(struct sk_buff *skb)
 	free(skb);
 	skb = NULL;
 }
+
+void skb_queue_free(struct sk_buff_head *list)
+{
+	struct sk_buff *skb;
+
+	pthread_spin_lock(&list->lock);
+	while ( (skb = __skb_dequeue(list)) != NULL)
+		skb_free(skb);
+	pthread_spin_unlock(&list->lock);
+}

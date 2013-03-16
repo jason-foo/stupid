@@ -12,6 +12,7 @@
 #include <arpa/inet.h>
 #include <sys/un.h>
 
+#include "../src/utils.h"
 #include "common.h"
 #include "stupid.h"
 
@@ -28,19 +29,29 @@ struct sockaddr_un client;
 int client_fd;
 char stupid_client_path[128];
 
+int lock_fd;
+
 void __error_sys(char *msg)
 {
 	perror(msg);
 	exit(EXIT_FAILURE);
 }
 
+#define LOCKMODE (S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP)
+
 /* the real initialization process will be done only once */
 void socket_init()
 {
 	int addr_len;
+	char *pidfile = "/run/stupid.pid";
 
 	if (init_done)
 		return;
+
+	if ( (lock_fd = open(pidfile, O_RDWR | O_CREAT, LOCKMODE)) < 0)
+		__error_sys("error opening lock_file");
+	if (!is_stupid_started(lock_fd))
+		__error_sys("stupid server not started");
 
 	pthread_spin_init(&sfd_lock, PTHREAD_PROCESS_SHARED);
 	pid = getpid();
@@ -94,7 +105,7 @@ int read_from_server(char *buf, int len)
 	int tot = 0;
 
 	tot = recv(client_fd, buf, len, 0);
-	printf("read_from_server: received %d bytes\n", tot);
+	/* printf("read_from_server: received %d bytes\n", tot); */
 
 	return tot;
 }
@@ -115,6 +126,7 @@ int stupid_socket(int domain, int type, int protocol)
 	struct request_socket req;
 	struct response_socket *resp;
 	int sfd;
+	int sock_id;
 	int res, len;
 	char readbuf[1600];
 
@@ -142,7 +154,10 @@ int stupid_socket(int domain, int type, int protocol)
 	if (resp->type == API_SOCKET_RESPONSE)
 	{
 		/* spin lock unnecessary here */
-		sfd_table[sfd].sock_id = resp->sock_id;
+		sock_id = resp->sock_id;
+		printf("got sock id: %d\n", sock_id);
+		sockid_lock(lock_fd, sock_id);
+		sfd_table[sfd].sock_id = sock_id;
 	} else {
 		printf("unknown type id %d in response\n", resp->type);
 	}

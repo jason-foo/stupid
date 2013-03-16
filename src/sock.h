@@ -7,11 +7,9 @@
 #include "skbuff.h"
 #include "netdevice.h"
 
-struct sk_buff_head;
-//struct sk_buff;
-
 struct sock {
 	int inuse;
+	int time_active;
 
 	struct sk_buff_head sk_receive_queue;
 
@@ -19,6 +17,7 @@ struct sock {
 
 	struct sockaddr_un sa;
 	int sa_len;
+	char sa_path[15];
 
 	int domain;
 	int type;
@@ -34,8 +33,12 @@ struct sock {
 	} dest;       
 };
 
+extern int lock_fd;
+
 #define SOCK_TABLE_SIZE 1024
+#define SOCK_CHECK_TIME 60
 extern void *do_sock(void *arg);
 extern void sock_try_insert(struct sk_buff *skb);
+extern void lock_init();
 		
 #endif
