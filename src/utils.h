@@ -22,4 +22,6 @@ extern int lock_reg(int fd, int cmd, int type, off_t offset, int whence, off_t
 		    len);
 extern pid_t lock_test(int fd, int type, off_t offset, int whence, off_t len);
 
+extern void utils_init();
+
 #endif

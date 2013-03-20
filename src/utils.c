@@ -115,3 +115,8 @@ pid_t lock_test(int fd, int type, off_t offset, int whence, off_t len)
 		return 0;
 	return lock.l_pid;
 }
+
+void utils_init()
+{
+	srand(get_second());
+}

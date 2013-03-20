@@ -161,6 +161,8 @@ void signal_init()
 
 int main()
 {
+	utils_init();
+
 	write_pid_file();
 	lock_init();
 	signal_init();
