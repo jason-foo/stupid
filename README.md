@@ -83,6 +83,6 @@ source communities.
     FINS-Framework (some)
     uld (from Cisco System)
 
-
-                                        by: jason-foo
-                                        email: fujianshuang@gmail.com
+Author
+======
+    jason-foo, <fujianshuang@gmail.com>

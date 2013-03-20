@@ -1,7 +1,7 @@
 Copyright 2013 jason.foo. All rights reserved.
 
 authors:
-	jason-foo (fujianshuang@gmail.com)
+	jason-foo, <fujianshuang@gmail.com>
 
 The main idea of the processing path is borrowed from Linux kernel.
 And the uld repository from Cisco System shows some simplified multiplexing and
