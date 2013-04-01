@@ -6,6 +6,8 @@ STUPID means Simple TCP/IP User sPace Implementation Daemon :D
 We are a group of students trying to accomplish it, but we need a prototype to
 see whether our idea is correct. So I'm trying.
 
+The project is temporarily suspended because some team members are busy for these days.
+
 Motivation
 ==========
 
